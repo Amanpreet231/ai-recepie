@@ -326,6 +326,13 @@
       </select>
     </div>
     <div class="control-card">
+      <label>⚡ Scan Mode</label>
+      <select id="scanMode">
+        <option value="smart" selected>🧠 Smart (8 sports ~8 credits)</option>
+        <option value="full">🌐 Full (all sports ~86 credits)</option>
+      </select>
+    </div>
+    <div class="control-card">
       <label>🏆 Sport</label>
       <select id="sportFilter">
         <option value="all">All Sports</option>
@@ -576,27 +583,69 @@ function updateRangeDisplay() {
   document.getElementById('maxLegsVal').textContent = document.getElementById('maxLegsRange').value;
 }
 
+// ─── Cache (30 min TTL) ───────────────────────────────────────────────────────
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+
+function cacheSet(key, data) {
+  try { localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data })); } catch {}
+}
+function cacheGet(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const { ts, data } = JSON.parse(raw);
+    if (Date.now() - ts > CACHE_TTL) { localStorage.removeItem(key); return null; }
+    return data;
+  } catch { return null; }
+}
+function cacheClear() {
+  Object.keys(localStorage).filter(k => k.startsWith('odds_')).forEach(k => localStorage.removeItem(k));
+}
+
+// Top sports to scan by default (covers 95% of betting interest, uses ~8 requests)
+const TOP_SPORT_KEYS = [
+  'soccer_epl','soccer_uefa_champs_league','soccer_australia_aleague',
+  'basketball_nba','basketball_nbl',
+  'cricket_ipl','cricket_odi',
+  'aussie_rules_afl',
+  'rugbyleague_nrl',
+  'mma_mixed_martial_arts',
+  'baseball_mlb',
+  'icehockey_nhl',
+];
+
 // ─── API ──────────────────────────────────────────────────────────────────────
 const API = 'https://api.the-odds-api.com/v4';
 
 async function apiFetch(url) {
   const res = await fetch(url);
   const left = res.headers.get('x-requests-remaining');
-  if (left) {
+  if (left !== null) {
     document.getElementById('requestsLeft').textContent = left;
     document.getElementById('requestsBadge').style.display = '';
+    // Warn if low
+    if (parseInt(left) < 20) showAlert(`⚠️ Only ${left} API requests left this month!`, 'error');
   }
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   return res.json();
 }
 
 async function fetchSports() {
-  return apiFetch(`${API}/sports?apiKey=${apiKey}&all=false`);
+  const cached = cacheGet('odds_sports');
+  if (cached) return cached;
+  const data = await apiFetch(`${API}/sports?apiKey=${apiKey}&all=false`);
+  cacheSet('odds_sports', data);
+  return data;
 }
 
 async function fetchOdds(sportKey, regions, markets) {
+  const cacheKey = `odds_${sportKey}_${regions}_${markets}`;
+  const cached = cacheGet(cacheKey);
+  if (cached) return cached; // FREE — no API request used
   try {
-    return await apiFetch(`${API}/sports/${sportKey}/odds?apiKey=${apiKey}&regions=${regions}&markets=${markets}&oddsFormat=decimal&dateFormat=iso`);
+    const data = await apiFetch(`${API}/sports/${sportKey}/odds?apiKey=${apiKey}&regions=${regions}&markets=${markets}&oddsFormat=decimal&dateFormat=iso`);
+    cacheSet(cacheKey, data);
+    return data;
   } catch { return []; }
 }
 
@@ -612,22 +661,37 @@ async function startScan() {
   document.getElementById('progressFill').style.width = '5%';
   document.getElementById('bestMultiCard').className = 'best-multi-card';
   document.getElementById('customMultiSection').className = 'custom-multi-section';
-  document.getElementById('betsBody').innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="icon" style="animation:pulse 1s infinite">⚡</div><p>Scanning all sports...</p></div></td></tr>`;
+  document.getElementById('betsBody').innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="icon" style="animation:pulse 1s infinite">⚡</div><p>Scanning sports...</p></div></td></tr>`;
   document.getElementById('liveBadge').style.display = '';
   hideAlert();
 
   try {
-    const sports = await fetchSports();
+    const allSports = await fetchSports();
     const sportFilter = document.getElementById('sportFilter').value;
     const regions = document.getElementById('regionSelect').value;
     const markets = document.getElementById('marketSelect').value;
+    const scanMode = document.getElementById('scanMode').value;
 
-    let targets = sports.filter(s => s.active);
-    if (sportFilter !== 'all') targets = targets.filter(s => getSportCat(s.key) === sportFilter);
+    let targets = allSports.filter(s => s.active);
 
-    if (!targets.length) { showAlert('No active sports found. Try a different sport filter.', 'error'); stopScan(); return; }
+    if (sportFilter !== 'all') {
+      // User picked a specific sport — scan only those (cheapest)
+      targets = targets.filter(s => getSportCat(s.key) === sportFilter);
+    } else if (scanMode === 'smart') {
+      // Smart mode: only scan top sports — uses ~8-12 requests
+      targets = targets.filter(s => TOP_SPORT_KEYS.some(k => s.key.includes(k.split('_')[0]) || TOP_SPORT_KEYS.includes(s.key)));
+      if (targets.length === 0) targets = allSports.filter(s => s.active).slice(0, 12);
+    }
+    // 'full' mode: scan everything (uses ~86 requests — costs more)
 
-    setStatus(`Scanning ${targets.length} sports with markets: ${markets.replace(/,/g, ' + ')}...`, true);
+    if (!targets.length) { showAlert('No active sports found.', 'error'); stopScan(); return; }
+
+    // Count how many are cached vs need fresh fetch
+    const regions_ = regions, markets_ = markets;
+    const cached = targets.filter(s => cacheGet(`odds_${s.key}_${regions_}_${markets_}`));
+    const fresh = targets.filter(s => !cacheGet(`odds_${s.key}_${regions_}_${markets_}`));
+
+    setStatus(`Scanning ${targets.length} sports (${cached.length} cached free, ${fresh.length} fresh)...`, true);
 
     const BATCH = 5;
     for (let i = 0; i < targets.length; i += BATCH) {
@@ -636,12 +700,12 @@ async function startScan() {
       results.forEach((events, j) => events.forEach(ev => processEvent(ev, batch[j])));
       const pct = 5 + Math.round(((i + BATCH) / targets.length) * 90);
       document.getElementById('progressFill').style.width = Math.min(pct, 95) + '%';
-      setStatus(`Scanned ${Math.min(i + BATCH, targets.length)}/${targets.length} sports — ${allBets.length} bets found`, true);
+      setStatus(`Scanned ${Math.min(i + BATCH, targets.length)}/${targets.length} — ${allBets.length} bets (${cached.length} from cache 🆓)`, true);
     }
 
     document.getElementById('progressFill').style.width = '100%';
 
-    if (!allBets.length) { showAlert('No bets found. Try a different region or sport.', 'error'); stopScan(); return; }
+    if (!allBets.length) { showAlert('No bets found. Try a different region or time window.', 'error'); stopScan(); return; }
 
     const targetOdds = parseFloat(document.getElementById('targetOddsRange').value);
     const maxLegs = parseInt(document.getElementById('maxLegsRange').value);
@@ -654,8 +718,10 @@ async function startScan() {
     filteredBets = [...allBets].sort((a, b) => a.odds - b.odds);
     renderTable();
 
+    const freshCount = targets.filter(s => !cacheGet(`odds_${s.key}_${regions}_${markets}`)).length;
+    // freshCount here is 0 since we just fetched them, recalculate from fresh list
     setStatus(`✅ ${allBets.length} bets across ${targets.length} sports — ${markets.split(',').length} market type(s)`, false);
-    showAlert(`Found ${allBets.length} bets including Over/Under, Handicap and Match Winner markets.`, 'success');
+    showAlert(`✅ Found ${allBets.length} bets. Used ${fresh.length} API credit(s) — ${cached.length} sport(s) loaded free from cache (valid 30 min).`, 'success');
 
   } catch (err) {
     showAlert('Error: ' + (err.message || 'Check your API key'), 'error');
