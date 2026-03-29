@@ -211,6 +211,40 @@
   ::-webkit-scrollbar-track { background: var(--bg2); }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
+  /* Bet History */
+  .stats-bar { display:flex; gap:10px; flex-wrap:wrap; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; margin-bottom:16px; }
+  .stat-box { flex:1; min-width:80px; text-align:center; }
+  .stat-val { font-size:18px; font-weight:700; }
+  .stat-val.green { color:var(--green); }
+  .stat-val.red { color:var(--red); }
+  .stat-val.gold { color:var(--gold); }
+  .stat-lbl { font-size:11px; color:var(--text2); margin-top:2px; }
+  .history-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; margin-bottom:10px; }
+  .history-card.won { border-left:3px solid var(--green); }
+  .history-card.lost { border-left:3px solid var(--red); }
+  .history-card.pending { border-left:3px solid var(--gold); }
+  .history-header { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
+  .history-odds { font-size:20px; font-weight:800; color:var(--green); }
+  .history-date { font-size:11px; color:var(--text3); }
+  .history-legs { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+  .history-leg-pill { background:var(--bg3); border-radius:5px; padding:4px 10px; font-size:12px; border-left:2px solid var(--border); }
+  .hleg-market { font-size:10px; color:var(--text2); }
+  .hleg-pick { font-weight:600; }
+  .hleg-odds { color:var(--green); font-weight:700; margin-left:6px; }
+  .history-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .result-btn { padding:5px 14px; border-radius:5px; font-size:12px; font-weight:600; border:1px solid; cursor:pointer; transition:all 0.15s; background:transparent; }
+  .result-btn.win  { border-color:var(--green); color:var(--green); }
+  .result-btn.win.active,.result-btn.win:hover { background:var(--green); color:#000; }
+  .result-btn.loss { border-color:var(--red); color:var(--red); }
+  .result-btn.loss.active,.result-btn.loss:hover { background:var(--red); color:#fff; }
+  .stake-logged { font-size:12px; color:var(--text2); display:flex; align-items:center; gap:6px; }
+  .stake-logged input { width:70px; padding:4px 8px; font-size:12px; text-align:right; background:var(--bg); border:1px solid var(--border); color:var(--text); border-radius:5px; }
+  .pnl-badge { font-size:13px; font-weight:700; padding:3px 10px; border-radius:5px; }
+  .pnl-pos { background:rgba(0,230,118,0.15); color:var(--green); }
+  .pnl-neg { background:rgba(239,83,80,0.15); color:var(--red); }
+  .delete-btn { margin-left:auto; background:transparent; border:none; color:var(--text3); cursor:pointer; font-size:16px; padding:4px 8px; border-radius:4px; }
+  .delete-btn:hover { color:var(--red); }
+
   @media (max-width: 600px) {
     .controls { grid-template-columns: 1fr 1fr; }
     .legs-grid { grid-template-columns: 1fr; }
@@ -339,6 +373,7 @@
         <input type="number" class="stake-input" id="stakeAmount" value="20" min="1" oninput="updateReturns()">
       </div>
       <div class="return-amounts" id="returnAmounts"></div>
+      <button class="btn btn-primary" style="margin-left:auto" onclick="logCurrentMulti()">📋 Log this Multi</button>
     </div>
   </div>
 
@@ -395,6 +430,58 @@
         </tbody>
       </table>
     </div>
+  </div>
+
+</div>
+
+  <!-- Bet History -->
+  <div id="historySection">
+    <div class="section-header">
+      <h3>📊 Bet History & Tracker <span class="count-badge" id="historyCount">0</span></h3>
+      <button class="btn btn-secondary btn-small" onclick="clearHistory()" id="clearHistoryBtn" style="display:none">🗑 Clear All</button>
+    </div>
+
+    <!-- Stats bar -->
+    <div class="stats-bar" id="statsBar" style="display:none">
+      <div class="stat-box">
+        <div class="stat-val" id="statTotal">0</div>
+        <div class="stat-lbl">Total Bets</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val green" id="statWins">0</div>
+        <div class="stat-lbl">Wins ✅</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val red" id="statLosses">0</div>
+        <div class="stat-lbl">Losses ❌</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val gold" id="statWinRate">–</div>
+        <div class="stat-lbl">Win Rate</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" id="statStaked">$0</div>
+        <div class="stat-lbl">Total Staked</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" id="statReturn">$0</div>
+        <div class="stat-lbl">Total Return</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" id="statROI">–</div>
+        <div class="stat-lbl">ROI</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" id="statPnL">$0</div>
+        <div class="stat-lbl">Profit / Loss</div>
+      </div>
+    </div>
+
+    <div id="historyEmpty" style="text-align:center;padding:40px 20px;color:var(--text3);font-size:13px">
+      No bets logged yet. Run a scan, then click <strong style="color:var(--text2)">📋 Log this Multi</strong> to start tracking.
+    </div>
+
+    <div id="historyList"></div>
   </div>
 
 </div>
@@ -948,6 +1035,166 @@ function exportCSV() {
   const a = Object.assign(document.createElement('a'), {href:URL.createObjectURL(blob), download:`stake-bets-${new Date().toISOString().slice(0,10)}.csv`});
   a.click();
 }
+
+// ─── Bet History Tracker ──────────────────────────────────────────────────────
+let betHistory = JSON.parse(localStorage.getItem('betHistory') || '[]');
+
+function saveHistory() {
+  localStorage.setItem('betHistory', JSON.stringify(betHistory));
+}
+
+function logCurrentMulti() {
+  const legs = Array.from(document.querySelectorAll('.leg-card')).map(card => ({
+    match:     card.querySelector('.leg-match')?.textContent?.trim() || '',
+    sport:     card.querySelector('.leg-sport')?.textContent?.trim() || '',
+    market:    card.querySelector('.market-pill')?.textContent?.trim() || '',
+    selection: card.querySelector('.leg-selection')?.textContent?.replace('✓','').trim() || '',
+    odds:      parseFloat(card.querySelector('.leg-odds')?.textContent) || 0,
+  }));
+
+  if (!legs.length) { showAlert('No multi to log — run a scan first', 'error'); return; }
+
+  const combinedOdds = legs.reduce((a, b) => a * b.odds, 1);
+  const stake = parseFloat(document.getElementById('stakeAmount').value) || 20;
+
+  const entry = {
+    id: Date.now(),
+    date: new Date().toISOString(),
+    legs,
+    combinedOdds,
+    stake,
+    result: 'pending', // 'pending' | 'won' | 'lost'
+  };
+
+  betHistory.unshift(entry);
+  saveHistory();
+  renderHistory();
+  showAlert('Multi logged! Mark it Won or Lost after the games finish.', 'success');
+}
+
+function setResult(id, result) {
+  const entry = betHistory.find(e => e.id === id);
+  if (!entry) return;
+  entry.result = entry.result === result ? 'pending' : result; // toggle off
+  saveHistory();
+  renderHistory();
+}
+
+function updateStake(id, value) {
+  const entry = betHistory.find(e => e.id === id);
+  if (!entry) return;
+  entry.stake = parseFloat(value) || 0;
+  saveHistory();
+  renderHistory();
+}
+
+function deleteEntry(id) {
+  betHistory = betHistory.filter(e => e.id !== id);
+  saveHistory();
+  renderHistory();
+}
+
+function clearHistory() {
+  if (!confirm('Clear all bet history? This cannot be undone.')) return;
+  betHistory = [];
+  saveHistory();
+  renderHistory();
+}
+
+function renderHistory() {
+  const list = document.getElementById('historyList');
+  const empty = document.getElementById('historyEmpty');
+  const statsBar = document.getElementById('statsBar');
+  const clearBtn = document.getElementById('clearHistoryBtn');
+  document.getElementById('historyCount').textContent = betHistory.length;
+
+  if (!betHistory.length) {
+    list.innerHTML = '';
+    empty.style.display = '';
+    statsBar.style.display = 'none';
+    clearBtn.style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  statsBar.style.display = 'flex';
+  clearBtn.style.display = '';
+
+  // Calculate stats (only settled bets)
+  const settled = betHistory.filter(e => e.result !== 'pending');
+  const wins    = betHistory.filter(e => e.result === 'won');
+  const losses  = betHistory.filter(e => e.result === 'lost');
+  const totalStaked  = settled.reduce((a, e) => a + e.stake, 0);
+  const totalReturn  = wins.reduce((a, e) => a + e.stake * e.combinedOdds, 0);
+  const pnl          = totalReturn - totalStaked;
+  const roi          = totalStaked > 0 ? (pnl / totalStaked) * 100 : null;
+  const winRate      = settled.length > 0 ? (wins.length / settled.length) * 100 : null;
+
+  document.getElementById('statTotal').textContent   = betHistory.length;
+  document.getElementById('statWins').textContent    = wins.length;
+  document.getElementById('statLosses').textContent  = losses.length;
+  document.getElementById('statWinRate').textContent = winRate !== null ? winRate.toFixed(0) + '%' : '–';
+  document.getElementById('statStaked').textContent  = '$' + totalStaked.toFixed(2);
+  document.getElementById('statReturn').textContent  = '$' + totalReturn.toFixed(2);
+  document.getElementById('statPnL').textContent     = (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2);
+  document.getElementById('statROI').textContent     = roi !== null ? (roi >= 0 ? '+' : '') + roi.toFixed(1) + '%' : '–';
+
+  // Color PnL
+  const pnlEl = document.getElementById('statPnL');
+  pnlEl.className = 'stat-val ' + (pnl >= 0 ? 'green' : 'red');
+  const roiEl = document.getElementById('statROI');
+  roiEl.className = 'stat-val ' + (roi === null ? '' : roi >= 0 ? 'green' : 'red');
+
+  // Render cards
+  list.innerHTML = betHistory.map(entry => {
+    const d = new Date(entry.date);
+    const dateStr = d.toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+    const pnlVal = entry.result === 'won'  ? entry.stake * entry.combinedOdds - entry.stake
+                 : entry.result === 'lost' ? -entry.stake : null;
+    const pnlHtml = pnlVal !== null
+      ? `<span class="pnl-badge ${pnlVal >= 0 ? 'pnl-pos' : 'pnl-neg'}">${pnlVal >= 0 ? '+' : ''}$${pnlVal.toFixed(2)}</span>`
+      : '';
+
+    const legsHtml = entry.legs.map(l => `
+      <div class="history-leg-pill">
+        <div class="hleg-market">${l.sport} · ${l.market}</div>
+        <span class="hleg-pick">${l.selection}</span>
+        <span class="hleg-odds">${l.odds.toFixed(2)}</span>
+      </div>`).join('');
+
+    return `
+    <div class="history-card ${entry.result}">
+      <div class="history-header">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span class="history-odds">${entry.combinedOdds.toFixed(2)}x</span>
+          <span style="font-size:12px;color:var(--text2)">${entry.legs.length} legs</span>
+          ${entry.result === 'won'     ? '<span style="color:var(--green);font-weight:700">✅ WON</span>'
+          : entry.result === 'lost'   ? '<span style="color:var(--red);font-weight:700">❌ LOST</span>'
+          : '<span style="color:var(--gold);font-size:12px">⏳ Pending</span>'}
+          ${pnlHtml}
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="history-date">Logged: ${dateStr}</span>
+          <button class="delete-btn" onclick="deleteEntry(${entry.id})" title="Delete">✕</button>
+        </div>
+      </div>
+
+      <div class="history-legs">${legsHtml}</div>
+
+      <div class="history-actions">
+        <span class="stake-logged">
+          Stake: $<input type="number" value="${entry.stake}" min="0" step="1"
+            onchange="updateStake(${entry.id}, this.value)">
+          <span style="color:var(--text3)">→ win $${(entry.stake * entry.combinedOdds).toFixed(2)}</span>
+        </span>
+        <button class="result-btn win  ${entry.result === 'won'  ? 'active' : ''}" onclick="setResult(${entry.id}, 'won')">✅ Won</button>
+        <button class="result-btn loss ${entry.result === 'lost' ? 'active' : ''}" onclick="setResult(${entry.id}, 'lost')">❌ Lost</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// Load history on startup
+renderHistory();
 
 // ─── Alerts ────────────────────────────────────────────────────────────────────
 function showAlert(msg, type='info') {
