@@ -1244,8 +1244,13 @@ function sportCatFromDisplay(sportStr) {
 // Normalise market label → API key  (handles old entries stored with display label)
 function normaliseMarket(m) {
   if (!m) return m;
-  const map = { 'handicap': 'spreads', 'match winner': 'h2h', 'over/under': 'totals', 'winner': 'h2h' };
-  return map[m.toLowerCase()] || m; // already an API key → pass through
+  const map = {
+    'handicap': 'spreads', 'spread': 'spreads',
+    'match winner': 'h2h', 'winner': 'h2h',
+    'h2h_lay': 'h2h', 'lay': 'h2h',       // lay market = backing the other side, treat as h2h
+    'over/under': 'totals', 'total': 'totals',
+  };
+  return map[m.toLowerCase()] || m;
 }
 
 // Extract point value from selection string e.g. "Seattle Mariners +2.5" → 2.5
