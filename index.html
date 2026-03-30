@@ -674,7 +674,11 @@ const TOP_SPORT_KEYS = [
 const SMART_MAX_PER_CAT = { soccer: 3, basketball: 2, cricket: 2, aussierules: 1, rugby: 1, mma: 1, baseball: 1, icehockey: 1, tennis: 1, americanfootball: 1 };
 
 // ─── API ──────────────────────────────────────────────────────────────────────
-const API = 'https://api.the-odds-api.com/v4';
+// Phase B: set USE_PROXY = true and fill PROXY_URL once Cloudflare Worker is deployed
+// That makes ALL users share one cache — free tier serves thousands of users
+const USE_PROXY  = false;
+const PROXY_URL  = 'https://stake-multi-proxy.YOUR_NAME.workers.dev'; // replace after deploy
+const API = USE_PROXY ? PROXY_URL : 'https://api.the-odds-api.com/v4';
 
 async function apiFetch(url) {
   const res = await fetch(url);
@@ -692,18 +696,24 @@ async function apiFetch(url) {
 async function fetchSports() {
   const cached = cacheGet('odds_sports');
   if (cached) return cached;
-  const data = await apiFetch(`${API}/sports?apiKey=${apiKey}&all=false`);
-  cacheSet('odds_sports', data, 6 * 60 * 60 * 1000); // sports list changes rarely — 6h cache
+  const url = USE_PROXY
+    ? `${API}/sports`
+    : `${API}/sports?apiKey=${apiKey}&all=false`;
+  const data = await apiFetch(url);
+  cacheSet('odds_sports', data, 6 * 60 * 60 * 1000);
   return data;
 }
 
 async function fetchOdds(sportKey, regions, markets) {
   const cacheKey = `odds_${sportKey}_${regions}_${markets}`;
   const cached = cacheGet(cacheKey);
-  if (cached) return cached; // FREE — no API request used
+  if (cached) return cached;
   try {
-    const data = await apiFetch(`${API}/sports/${sportKey}/odds?apiKey=${apiKey}&regions=${regions}&markets=${markets}&oddsFormat=decimal&dateFormat=iso`);
-    const ttl = computeSmartTTL(data); // tiered TTL based on game proximity
+    const url = USE_PROXY
+      ? `${API}/odds/${sportKey}?regions=${regions}&markets=${markets}`
+      : `${API}/sports/${sportKey}/odds?apiKey=${apiKey}&regions=${regions}&markets=${markets}&oddsFormat=decimal&dateFormat=iso`;
+    const data = await apiFetch(url);
+    const ttl = computeSmartTTL(data);
     cacheSet(cacheKey, data, ttl);
     return data;
   } catch { return []; }
