@@ -360,6 +360,15 @@
   <div class="header-badges">
     <div class="badge live" id="liveBadge" style="display:none">● LIVE</div>
     <div class="badge" id="requestsBadge" style="display:none">API: <strong id="requestsLeft">–</strong> left</div>
+    <div id="creditBar" style="margin-top:6px;min-width:120px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+        <span style="color:#888;font-size:0.75rem;">API Credits</span>
+        <span id="creditCount" style="color:#fff;font-size:0.75rem;">— / 500</span>
+      </div>
+      <div style="background:#1a2a3a;border-radius:4px;height:6px;overflow:hidden;">
+        <div id="creditFill" style="height:100%;border-radius:4px;background:#00e676;transition:width 0.3s,background 0.3s;width:0%;"></div>
+      </div>
+    </div>
   </div>
 </header>
 
@@ -531,7 +540,22 @@
       <label style="color:var(--text2);font-size:12px;display:flex;align-items:center;gap:5px">
         <input type="checkbox" id="favoritesOnly" onchange="filterBets()"> Favs only (&lt;1.80)
       </label>
+      <input id="minOdds" type="number" min="1.0" max="10" step="0.1" value="1.0"
+        placeholder="Min odds"
+        style="width:75px;background:#0d1b2a;border:1px solid #333;color:#fff;padding:6px;border-radius:4px;font-size:0.85rem;"
+        oninput="filterBets()">
+      <label style="color:#888;font-size:0.85rem;display:flex;align-items:center;gap:6px;cursor:pointer;">
+        <input type="checkbox" id="valueOnly" onchange="filterBets()" style="accent-color:#ffd740;">
+        &#9733; Value only
+      </label>
+      <select id="sortSelect" onchange="filterBets()" style="font-size:12px;padding:5px 8px;background:#0d1b2a;border:1px solid #333;color:#fff;border-radius:4px;">
+        <option value="match">Best Match</option>
+        <option value="odds-high">Highest Odds</option>
+        <option value="odds-low">Lowest Odds</option>
+        <option value="value">Value Score</option>
+      </select>
     </div>
+    <div id="betCountDisplay" style="padding:6px 2px;font-size:0.82rem;color:#888;"></div>
     <div class="table-wrap">
       <table id="betsTable">
         <thead>
@@ -774,14 +798,36 @@ function getMonthlyCreditsUsed() {
     return log.filter(e => e.ts >= monthStart.getTime()).reduce((a, e) => a + e.count, 0);
   } catch { return 0; }
 }
-function updateCreditDisplay() {
+function updateCreditDisplay(remaining) {
+  const TOTAL = 500;
   const used = getMonthlyCreditsUsed();
-  const left = document.getElementById('requestsLeft').textContent;
-  const leftNum = parseInt(left);
+  // If no remaining value passed, try to read from DOM
+  if (remaining === undefined) {
+    const left = document.getElementById('requestsLeft').textContent;
+    const leftNum = parseInt(left);
+    remaining = isNaN(leftNum) ? null : leftNum;
+  }
   const badge = document.getElementById('requestsBadge');
   if (badge) {
-    badge.innerHTML = `API: <strong id="requestsLeft">${isNaN(leftNum) ? '–' : leftNum}</strong> left &nbsp;·&nbsp; used <strong>${used}</strong> this month`;
+    badge.innerHTML = `API: <strong id="requestsLeft">${remaining !== null ? remaining : '–'}</strong> left &nbsp;·&nbsp; used <strong>${used}</strong> this month`;
     badge.style.display = '';
+  }
+  // Progress bar
+  const countEl = document.getElementById('creditCount');
+  const fillEl = document.getElementById('creditFill');
+  if (remaining !== null && remaining !== undefined) {
+    const pct = Math.max(0, Math.min(100, (remaining / TOTAL) * 100));
+    if (countEl) countEl.textContent = `${remaining} left / ${TOTAL}`;
+    if (fillEl) {
+      fillEl.style.width = pct + '%';
+      fillEl.style.background = pct > 30 ? '#00e676' : pct > 10 ? '#ffd740' : '#ef5350';
+    }
+    // Warning thresholds
+    if (remaining <= 50 && remaining > 0) {
+      showAlert(`⚠️ Low credits: ${remaining} remaining this month`, 'error');
+    } else if (remaining <= 0) {
+      showAlert('❌ No API credits remaining. Resets monthly.', 'error');
+    }
   }
 }
 
@@ -821,8 +867,7 @@ async function apiFetch(url) {
   if (left !== null) {
     document.getElementById('requestsLeft').textContent = left;
     document.getElementById('requestsBadge').style.display = '';
-    // Warn if low
-    if (parseInt(left) < 20) showAlert(`⚠️ Only ${left} API requests left this month!`, 'error');
+    updateCreditDisplay(parseInt(left));
   }
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   return res.json();
@@ -872,6 +917,19 @@ async function startScan() {
     showAlert(`⏳ Please wait ${waitMins} more minute(s) before scanning again (prevents wasting API credits).`, 'info');
     return;
   }
+
+  // Low-credit auto-switch to smart mode
+  let scanMode = document.getElementById('scanMode').value;
+  if (!isNaN(creditsLeft) && creditsLeft < 20 && scanMode !== 'smart') {
+    scanMode = 'smart';
+    document.getElementById('scanMode').value = 'smart';
+    showAlert('⚠️ Low credits — switched to Smart scan mode automatically', 'error');
+  }
+
+  // Show credit estimate before scan starts
+  const estimatedCredits = scanMode === 'smart' ? '~8 credits' : '~86 credits';
+  setStatus(`Starting scan (${estimatedCredits})...`, true);
+
   lastScanTime = Date.now();
   scanning = true;
   allBets = []; filteredBets = []; customLegs = [];
@@ -1267,13 +1325,24 @@ function renderTable() {
   document.getElementById('betCount').textContent = filteredBets.length;
   if (!allBets.length) {
     body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#666;padding:20px">No bets found. Try scanning more sports or changing the region.</td></tr>';
+    const cd = document.getElementById('betCountDisplay'); if (cd) cd.textContent = '';
     return;
   }
   if (!filteredBets.length) {
     body.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="icon">🔍</div><p>No bets match your filters</p></div></td></tr>`;
+    const cd = document.getElementById('betCountDisplay'); if (cd) cd.textContent = 'Showing 0 of ' + allBets.length + ' bets';
     return;
   }
-  body.innerHTML = filteredBets.slice(0, 500).map(bet => {
+  // Apply sort dropdown (on top of column-sort already done by sortFilteredBets)
+  const sort = document.getElementById('sortSelect')?.value || 'match';
+  let displayBets = [...filteredBets];
+  if (sort === 'odds-high') displayBets.sort((a, b) => b.odds - a.odds);
+  else if (sort === 'odds-low') displayBets.sort((a, b) => a.odds - b.odds);
+  else if (sort === 'value') displayBets.sort((a, b) => (b.isValue ? 1 : 0) - (a.isValue ? 1 : 0) || b.odds - a.odds);
+  // 'match' = leave in current sortFilteredBets order
+  const cd = document.getElementById('betCountDisplay');
+  if (cd) cd.textContent = `Showing ${Math.min(displayBets.length, 500)} of ${allBets.length} bets`;
+  body.innerHTML = displayBets.slice(0, 500).map(bet => {
     const prob = bet.impliedProb * 100;
     const oddsClass = bet.odds < 1.4 ? 'odds-hot' : bet.odds < 1.7 ? 'odds-warm' : 'odds-cool';
     const mktClass = marketClass(bet.market);
@@ -1310,10 +1379,14 @@ function filterBets() {
   const search = document.getElementById('searchInput').value.toLowerCase();
   const sport = document.getElementById('sportFilterTable').value;
   const favOnly = document.getElementById('favoritesOnly').checked;
+  const minOdds = parseFloat(document.getElementById('minOdds')?.value) || 1.0;
+  const valueOnly = document.getElementById('valueOnly')?.checked;
   filteredBets = allBets.filter(b => {
     if (marketFilter !== 'all' && b.market !== marketFilter) return false;
     if (sport !== 'all' && b.sportCat !== sport) return false;
     if (favOnly && b.odds > 1.80) return false;
+    if (b.odds < minOdds) return false;
+    if (valueOnly && !b.isValue) return false;
     if (search && !`${b.match} ${b.selection} ${b.betDescription} ${b.sportLabel}`.toLowerCase().includes(search)) return false;
     return true;
   });
