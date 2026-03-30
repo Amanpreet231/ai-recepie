@@ -359,6 +359,13 @@
 
   /* Section dividers */
   .section + .section { border-top: 1px solid #111; margin-top: 24px; padding-top: 24px; }
+
+  /* Onboarding step dots */
+  .step-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #1a2a3a; border: 1px solid #333; transition: all 0.2s;
+  }
+  .step-dot.active { background: #00e676; border-color: #00e676; width: 24px; border-radius: 4px; }
 </style>
 <meta name="theme-color" content="#00e676">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -410,6 +417,60 @@
     </div>
   </div>
 </header>
+
+<!-- Onboarding Modal -->
+<div id="onboardingModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:10000;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:#0d1b2a;border:1px solid #00e676;border-radius:16px;padding:32px;max-width:480px;width:100%;position:relative;">
+    <!-- Step indicator -->
+    <div id="onboardSteps" style="display:flex;gap:8px;margin-bottom:24px;">
+      <div class="step-dot active" data-step="1"></div>
+      <div class="step-dot" data-step="2"></div>
+      <div class="step-dot" data-step="3"></div>
+    </div>
+
+    <!-- Step 1: Welcome -->
+    <div id="onboard1">
+      <div style="font-size:3rem;text-align:center;margin-bottom:12px;">⚡</div>
+      <h2 style="color:#00e676;text-align:center;margin:0 0 12px;font-size:1.4rem;">Welcome to Stake Multi Builder</h2>
+      <p style="color:#aaa;text-align:center;line-height:1.6;margin:0 0 24px;">Scan live sports odds, find value bets, and build the perfect multi automatically.</p>
+      <button onclick="onboardNext(2)" style="width:100%;background:#00e676;color:#000;border:none;padding:14px;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;">Get Started →</button>
+    </div>
+
+    <!-- Step 2: API Key -->
+    <div id="onboard2" style="display:none;">
+      <h2 style="color:#00e676;margin:0 0 8px;">Get your free API key</h2>
+      <p style="color:#aaa;line-height:1.6;margin:0 0 16px;font-size:0.9rem;">The app uses The Odds API to fetch live sports data. Free tier gives you <strong style="color:#fff;">500 credits/month</strong> — enough for ~60 scans.</p>
+      <ol style="color:#aaa;font-size:0.9rem;line-height:2;padding-left:20px;margin:0 0 20px;">
+        <li>Go to <strong style="color:#00e676;">the-odds-api.com</strong></li>
+        <li>Click "Get API Key" (free)</li>
+        <li>Copy your key and paste it below</li>
+      </ol>
+      <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <input id="onboardApiKey" type="text" placeholder="Paste your API key here..."
+          style="flex:1;background:#1a2a3a;border:1px solid #333;color:#fff;padding:10px 12px;border-radius:6px;font-size:0.9rem;font-family:monospace;">
+        <button onclick="onboardSaveKey()" style="background:#00e676;color:#000;border:none;padding:10px 16px;border-radius:6px;font-weight:700;cursor:pointer;white-space:nowrap;">Save</button>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="onboardNext(1)" style="flex:1;background:#1a2a3a;color:#888;border:1px solid #333;padding:12px;border-radius:8px;cursor:pointer;">← Back</button>
+        <button onclick="onboardNext(3)" id="onboardSkip2" style="flex:1;background:#1a2a3a;color:#555;border:1px solid #222;padding:12px;border-radius:8px;cursor:pointer;font-size:0.85rem;">Skip for now</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Ready -->
+    <div id="onboard3" style="display:none;">
+      <div style="font-size:3rem;text-align:center;margin-bottom:12px;">🎯</div>
+      <h2 style="color:#00e676;text-align:center;margin:0 0 12px;">You're all set!</h2>
+      <div style="background:#1a2a3a;border-radius:8px;padding:16px;margin-bottom:20px;">
+        <p style="color:#aaa;margin:0 0 8px;font-size:0.88rem;"><strong style="color:#fff;">Quick tips:</strong></p>
+        <p style="color:#aaa;font-size:0.85rem;margin:4px 0;">⚡ Press <kbd style="background:#0d1b2a;border:1px solid #333;padding:1px 6px;border-radius:3px;">S</kbd> to scan for best bets</p>
+        <p style="color:#aaa;font-size:0.85rem;margin:4px 0;">★ Gold star = value bet (fair odds detected)</p>
+        <p style="color:#aaa;font-size:0.85rem;margin:4px 0;">📋 Copy Multi shares your selection instantly</p>
+        <p style="color:#aaa;font-size:0.85rem;margin:4px 0;">🎉 Bet results auto-check every 5 minutes</p>
+      </div>
+      <button onclick="closeOnboarding()" style="width:100%;background:#00e676;color:#000;border:none;padding:14px;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;">Start Scanning →</button>
+    </div>
+  </div>
+</div>
 
 <div class="container">
 
@@ -748,6 +809,41 @@ function marketClass(market) {
 }
 
 // ─── Init ──────────────────────────────────────────────────────────────────────
+function onboardNext(step) {
+  [1,2,3].forEach(n => {
+    document.getElementById('onboard' + n).style.display = n === step ? 'block' : 'none';
+  });
+  document.querySelectorAll('.step-dot').forEach((d, i) => {
+    d.classList.toggle('active', i + 1 === step);
+  });
+}
+
+function onboardSaveKey() {
+  const key = document.getElementById('onboardApiKey').value.trim();
+  if (!key || key.length < 20) {
+    document.getElementById('onboardApiKey').style.borderColor = '#ef5350';
+    return;
+  }
+  const existingInput = document.getElementById('apiKeyInput');
+  if (existingInput) { existingInput.value = key; }
+  if (typeof saveApiKey === 'function') saveApiKey();
+  else localStorage.setItem('oddsApiKey', key);
+  onboardNext(3);
+}
+
+function closeOnboarding() {
+  document.getElementById('onboardingModal').style.display = 'none';
+  localStorage.setItem('onboardingDone', '1');
+}
+
+function checkOnboarding() {
+  const done = localStorage.getItem('onboardingDone');
+  const hasKey = localStorage.getItem('oddsApiKey') || localStorage.getItem('apiKey');
+  if (!done && !hasKey) {
+    document.getElementById('onboardingModal').style.display = 'flex';
+  }
+}
+
 window.onload = () => {
   if (apiKey) {
     document.getElementById('apiKeyInput').value = apiKey;
@@ -758,6 +854,7 @@ window.onload = () => {
   renderHistory();
   autoCheckPendingBets();
   setInterval(autoCheckPendingBets, 5 * 60 * 1000);
+  checkOnboarding();
 };
 
 function saveApiKey() {
