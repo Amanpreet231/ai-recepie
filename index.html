@@ -245,10 +245,108 @@
   .delete-btn { margin-left:auto; background:transparent; border:none; color:var(--text3); cursor:pointer; font-size:16px; padding:4px 8px; border-radius:4px; }
   .delete-btn:hover { color:var(--red); }
 
+  .value-badge { color: #ffd740; font-size: 10px; margin-left: 3px; cursor: help; }
+
   @media (max-width: 600px) {
-    .controls { grid-template-columns: 1fr 1fr; }
+    /* Layout */
+    body { padding: 0; }
+    .container { max-width: 100%; padding: 0 8px; }
+
+    /* Header */
+    header { padding: 0 12px; height: 48px; }
+    .logo { font-size: 16px; }
+    .badge { padding: 3px 8px; font-size: 11px; }
+
+    /* API setup */
+    .api-setup { flex-direction: column; gap: 10px; padding: 12px; }
+    .api-setup-info { min-width: 0; }
+    .api-input-row { flex-direction: column; min-width: 0; width: 100%; }
+    .api-key-input { width: 100%; }
+    .api-input-row .btn { width: 100%; justify-content: center; }
+
+    /* Controls grid — single column on phones */
+    .controls { grid-template-columns: 1fr; }
+    .control-card select,
+    .control-card input[type="number"],
+    .control-card input[type="range"] { width: 100%; box-sizing: border-box; }
+
+    /* Scan row — stack button above status text */
+    .scan-row { flex-direction: column; gap: 10px; align-items: stretch; }
+    #scanBtn { width: 100%; padding: 14px; font-size: 1rem; }
+
+    /* Best multi card */
+    #bestMultiCard { padding: 14px; }
+    .multi-header { flex-direction: column; align-items: flex-start; }
+    .multi-stats { gap: 12px; }
+
+    /* Legs grid — single column */
     .legs-grid { grid-template-columns: 1fr; }
-    .api-input-row { flex-direction: column; }
+    .leg-card { padding: 10px 12px; }
+    .leg-odds { font-size: 1rem; }
+
+    /* Returns calc */
+    .returns-calc { flex-direction: column; gap: 10px; }
+    .returns-calc .btn { width: 100%; justify-content: center; margin-left: 0 !important; }
+    .return-amounts { justify-content: center; }
+
+    /* Filter bar — stack vertically */
+    .filter-bar { flex-direction: column; }
+    .filter-bar input[type="text"] { width: 100%; min-width: 0; }
+
+    /* Bets table — hide Market (3rd) and Starts (7th) columns to reduce width */
+    th:nth-child(3), td:nth-child(3) { display: none; }
+    th:nth-child(7), td:nth-child(7) { display: none; }
+
+    /* History section */
+    .history-card { padding: 12px; }
+    .history-actions { flex-direction: column; align-items: flex-start; }
+    .stats-bar { gap: 8px; }
+    .stat-box { min-width: 60px; }
+    .stat-val { font-size: 15px; }
+
+    /* Section headers */
+    .section-header { flex-direction: column; align-items: flex-start; gap: 6px; }
+
+    /* Custom multi */
+    .custom-multi-section { padding: 12px; }
+
+    /* Footer */
+    footer { font-size: 10px; padding: 14px 8px; }
+  }
+
+  /* Animations */
+  @keyframes scanPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(0,230,118,0.5); }
+    50%       { box-shadow: 0 0 0 12px rgba(0,230,118,0); }
+  }
+  @keyframes slideUp {
+    from { transform: translateY(18px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+  @keyframes resultFlash {
+    0%   { background: rgba(0,230,118,0.18); }
+    100% { background: transparent; }
+  }
+  #scanBtn.scanning {
+    animation: scanPulse 1.2s ease-in-out infinite;
+    opacity: 0.85;
+    pointer-events: none;
+  }
+  .best-multi-card { animation: slideUp 350ms ease-out both; }
+  .leg-card { animation: slideUp 250ms ease-out both; }
+  .leg-card:nth-child(1) { animation-delay: 40ms; }
+  .leg-card:nth-child(2) { animation-delay: 80ms; }
+  .leg-card:nth-child(3) { animation-delay: 120ms; }
+  .leg-card:nth-child(4) { animation-delay: 160ms; }
+  .leg-card:nth-child(5) { animation-delay: 200ms; }
+  .leg-card:nth-child(6) { animation-delay: 240ms; }
+  .leg-card:nth-child(7) { animation-delay: 280ms; }
+  .history-card.just-updated { animation: resultFlash 1.2s ease-out; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 </style>
 </head>
@@ -381,6 +479,7 @@
       </div>
       <div class="return-amounts" id="returnAmounts"></div>
       <button class="btn btn-primary" style="margin-left:auto" onclick="logCurrentMulti()">📋 Log this Multi</button>
+      <button id="shareBtn" onclick="shareMulti()" style="background:#1a2a3a;border:1px solid #00e676;color:#00e676;padding:8px 18px;border-radius:6px;cursor:pointer;font-size:0.85rem;">📋 Copy Multi</button>
     </div>
   </div>
 
@@ -486,6 +585,8 @@
         <div class="stat-lbl">Profit / Loss</div>
       </div>
     </div>
+
+    <svg id="roiChart" viewBox="0 0 600 70" preserveAspectRatio="none" style="width:100%;height:70px;display:block;margin:8px 0 16px;border-radius:6px;background:#0d1b2a;" xmlns="http://www.w3.org/2000/svg"></svg>
 
     <div id="historyEmpty" style="text-align:center;padding:40px 20px;color:var(--text3);font-size:13px">
       No bets logged yet. Run a scan, then click <strong style="color:var(--text2)">📋 Log this Multi</strong> to start tracking.
@@ -741,6 +842,7 @@ async function startScan() {
   scanning = true;
   allBets = []; filteredBets = []; customLegs = [];
   document.getElementById('scanBtn').disabled = true;
+  document.getElementById('scanBtn').classList.add('scanning');
   setStatus('Fetching sports list...', true);
   document.getElementById('progressBar').className = 'progress-bar active';
   document.getElementById('progressFill').style.width = '5%';
@@ -834,6 +936,7 @@ async function startScan() {
 function stopScan() {
   scanning = false;
   document.getElementById('scanBtn').disabled = false;
+  document.getElementById('scanBtn').classList.remove('scanning');
   setTimeout(() => { document.getElementById('progressBar').className = 'progress-bar'; }, 800);
 }
 
@@ -859,14 +962,22 @@ function processEvent(event, sport) {
   // Collect best odds per selection across all bookmakers
   const best = {};
   event.bookmakers.forEach(bm => {
-    bm.markets.forEach(mkt => {
-      mkt.outcomes.forEach(out => {
+    (bm.markets || []).forEach(mkt => {
+      (mkt.outcomes || []).forEach(out => {
+        if (!out.price || isNaN(out.price) || out.price <= 0) return;
         const key = `${mkt.key}|${out.name}|${out.point ?? ''}`;
         if (!best[key] || out.price > best[key].price) {
           best[key] = { market: mkt.key, name: out.name, price: out.price, point: out.point ?? null };
         }
       });
     });
+  });
+
+  // Build overround map per market key (using best odds) for vig removal
+  const marketOverround = {};
+  Object.values(best).forEach(out => {
+    if (!marketOverround[out.market]) marketOverround[out.market] = 0;
+    marketOverround[out.market] += 1 / out.price;
   });
 
   Object.values(best).forEach(out => {
@@ -884,6 +995,11 @@ function processEvent(event, sport) {
       betDescription = `${out.name} to win`;
     }
 
+    const bookOdds = out.price;
+    const overround = marketOverround[out.market] || 1;
+    const vigPercent = (overround - 1) * 100;
+    const fairOdds = overround * bookOdds;
+
     allBets.push({
       id: `${matchId}_${out.market}_${out.name}_${out.point}`,
       matchId, sportKey: sport.key, sportCat,
@@ -891,8 +1007,11 @@ function processEvent(event, sport) {
       sportLabel: sport.title || sportMeta.label,
       match: matchName, homeTeam, awayTeam,
       market: out.market, selection, betDescription,
-      odds: out.price, point: out.point,
-      impliedProb: 1 / out.price,
+      odds: bookOdds, point: out.point,
+      impliedProb: 1 / bookOdds,
+      fairOdds: parseFloat(fairOdds.toFixed(2)),
+      vigPct: parseFloat(vigPercent.toFixed(1)),
+      isValue: fairOdds >= bookOdds * 0.97,
       startTime, isLive,
       stakeUrl: stakeUrl({ sportCat, homeTeam }),
     });
@@ -901,10 +1020,16 @@ function processEvent(event, sport) {
 
 // ─── Multi Algorithm ──────────────────────────────────────────────────────────
 function buildBestMulti(bets, targetOdds, maxLegs, timeWindowH) {
+  if (!bets || bets.length < 2) {
+    showStatus('Not enough bets to build a multi. Try scanning more sports.', 'warn');
+    return null;
+  }
+
   // Valid range: avoid extreme odds on either end
   const valid = bets.filter(b => b.odds >= 1.03 && b.odds <= 2.20);
   if (valid.length < 2) return null;
 
+  const effectiveMaxLegs = Math.min(maxLegs, valid.length);
   const now = new Date();
 
   // Try progressively wider time windows until we have enough bets
@@ -919,7 +1044,7 @@ function buildBestMulti(bets, targetOdds, maxLegs, timeWindowH) {
 
   for (const w of windows) {
     if (w.bets.length < 2) continue;
-    const result = findBestMultiInBets(w.bets, targetOdds, maxLegs);
+    const result = findBestMultiInBets(w.bets, targetOdds, effectiveMaxLegs);
     if (result) return { ...result, timeWindow: w.label };
   }
   return null;
@@ -985,7 +1110,10 @@ function buildNLegMulti(bets, targetOdds, n) {
         if (cand.matchId === legs[i].matchId) continue;
         if (legs.some((l, j) => j !== i && l.matchId === cand.matchId)) continue;
         const newOdds = (odds / legs[i].odds) * cand.odds;
-        if (Math.abs(newOdds - targetOdds) < Math.abs(odds - targetOdds)) {
+        const allValue = cand.isValue && legs.every((l, j) => j === i || l.isValue);
+        const newScore = Math.abs(newOdds - targetOdds) - (allValue ? 0.01 : 0);
+        const curScore = Math.abs(odds - targetOdds);
+        if (newScore < curScore) {
           legs[i] = cand;
           odds = newOdds;
           improved = true;
@@ -1011,6 +1139,12 @@ function renderBestMulti(multi) {
   document.getElementById('multiProb').textContent = (winProb * 100).toFixed(1) + '%';
   document.getElementById('multiSports').textContent = uniqueSports;
   document.getElementById('multiMarkets').textContent = uniqueMarkets;
+
+  const allLegsValue = multi.legs.every(l => l.isValue);
+  const titleEl = document.querySelector('.multi-title h2');
+  if (titleEl) titleEl.innerHTML = allLegsValue
+    ? '⚡ Best Multi Found &nbsp;<span style="font-size:13px;color:#ffd740;font-weight:600">VALUE MULTI ★</span>'
+    : '⚡ Best Multi Found';
 
   const marketTypes = [...new Set(multi.legs.map(l => getMarketLabel(l.market)))].join(', ');
   const times = multi.legs.map(l => new Date(l.startTime));
@@ -1093,6 +1227,10 @@ function updateReturns() {
 function renderTable() {
   const body = document.getElementById('betsBody');
   document.getElementById('betCount').textContent = filteredBets.length;
+  if (!allBets.length) {
+    body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#666;padding:20px">No bets found. Try scanning more sports or changing the region.</td></tr>';
+    return;
+  }
   if (!filteredBets.length) {
     body.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="icon">🔍</div><p>No bets match your filters</p></div></td></tr>`;
     return;
@@ -1111,7 +1249,7 @@ function renderTable() {
       <td>${bet.match}</td>
       <td><span class="market-pill ${mktClass}">${getMarketLabel(bet.market)}</span></td>
       <td><strong>${bet.selection}</strong><br><span style="font-size:11px;color:var(--text3)">${bet.betDescription}</span></td>
-      <td class="odds-cell ${oddsClass}">${bet.odds.toFixed(2)}</td>
+      <td class="odds-cell ${oddsClass}">${bet.odds.toFixed(2)}${bet.isValue ? `<span class="value-badge" title="Fair odds: ${bet.fairOdds} | Vig: ${bet.vigPct}%">★</span>` : ''}</td>
       <td class="prob-cell"><span>${prob.toFixed(1)}%</span><div class="prob-bar"><div class="prob-fill" style="width:${Math.min(prob,100)}%"></div></div></td>
       <td>${timeStr}</td>
       <td class="td-actions">
@@ -1220,10 +1358,25 @@ function exportCSV() {
 }
 
 // ─── Bet History Tracker ──────────────────────────────────────────────────────
-let betHistory = JSON.parse(localStorage.getItem('betHistory') || '[]');
+let betHistory = [];
+try {
+  const _stored = localStorage.getItem('betHistory');
+  if (_stored) {
+    const _parsed = JSON.parse(_stored);
+    betHistory = Array.isArray(_parsed) ? _parsed : [];
+  }
+} catch(e) {
+  console.warn('betHistory corrupted, resetting:', e);
+  localStorage.removeItem('betHistory');
+  betHistory = [];
+}
 
 function saveHistory() {
-  localStorage.setItem('betHistory', JSON.stringify(betHistory));
+  try {
+    localStorage.setItem('betHistory', JSON.stringify(betHistory));
+  } catch(e) {
+    console.warn('Failed to save history (storage full?):', e);
+  }
 }
 
 function logCurrentMulti() {
@@ -1246,6 +1399,43 @@ function logCurrentMulti() {
   saveHistory();
   renderHistory();
   showAlert('✅ Multi logged! Results will auto-update once games finish.', 'success');
+}
+
+function shareMulti() {
+  if (!currentMultiLegs || !currentMultiLegs.length) {
+    showAlert('No multi to share — run a scan first', 'error');
+    return;
+  }
+
+  const totalOdds = currentMultiLegs.reduce((acc, leg) => acc * (leg.odds || 1), 1).toFixed(2);
+  const lines = [
+    '🎯 STAKE MULTI BUILDER',
+    `💰 Combined Odds: ${totalOdds}x`,
+    `📊 ${currentMultiLegs.length} Legs`,
+    '',
+    ...currentMultiLegs.map((leg, i) => {
+      const sport = leg.sport || '';
+      const match = leg.match || '';
+      const sel = leg.selection || '';
+      const odds = leg.odds ? `@ ${leg.odds.toFixed(2)}` : '';
+      return `${i + 1}. ${sport} | ${match}\n   → ${sel} ${odds}`;
+    }),
+    '',
+    `🕒 Built ${new Date().toLocaleString()}`,
+    '📱 via Stake Multi Builder'
+  ];
+
+  const text = lines.join('\n');
+
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('shareBtn');
+    const orig = btn.textContent;
+    btn.textContent = '✅ Copied!';
+    btn.style.color = '#ffd740';
+    setTimeout(() => { btn.textContent = orig; btn.style.color = '#00e676'; }, 2000);
+  }).catch(() => {
+    prompt('Copy this multi:', text);
+  });
 }
 
 function setResult(id, result) {
@@ -1415,46 +1605,51 @@ async function autoCheckPendingBets() {
     for (const leg of entry.legs) {
       if (leg.result && leg.result !== 'pending') continue;
 
-      // Derive sportCat if missing (old entries stored only display string)
-      const sportCat = leg.sportCat || sportCatFromDisplay(leg.sport);
-      const paths = ESPN_MAP[sportCat] || [];
-      if (!paths.length) { allResolved = false; continue; }
+      try {
+        // Derive sportCat if missing (old entries stored only display string)
+        const sportCat = leg.sportCat || sportCatFromDisplay(leg.sport);
+        const paths = ESPN_MAP[sportCat] || [];
+        if (!paths.length) { allResolved = false; continue; }
 
-      // Build date range: if startTime known check ±1 day around it; else just today+yesterday
-      // Deliberately narrow — going back further risks matching a different completed game
-      const baseDate = leg.startTime ? new Date(leg.startTime) : new Date();
-      const offsets = leg.startTime ? [-1, 0, 1] : [-1, 0];
-      const datesToTry = offsets.map(d => {
-        const dt = new Date(baseDate);
-        dt.setDate(dt.getDate() + d);
-        return dt.toISOString().slice(0, 10).replace(/-/g, '');
-      });
+        // Build date range: if startTime known check ±1 day around it; else just today+yesterday
+        // Deliberately narrow — going back further risks matching a different completed game
+        const baseDate = leg.startTime ? new Date(leg.startTime) : new Date();
+        const offsets = leg.startTime ? [-1, 0, 1] : [-1, 0];
+        const datesToTry = offsets.map(d => {
+          const dt = new Date(baseDate);
+          dt.setDate(dt.getDate() + d);
+          return dt.toISOString().slice(0, 10).replace(/-/g, '');
+        });
 
-      // Parse team names from match string as fallback
-      const parsedTeams = teamsFromMatch(leg.match);
-      const homeTeam = leg.homeTeam || parsedTeams.home;
-      const awayTeam = leg.awayTeam || parsedTeams.away;
+        // Parse team names from match string as fallback
+        const parsedTeams = teamsFromMatch(leg.match);
+        const homeTeam = leg.homeTeam || parsedTeams.home;
+        const awayTeam = leg.awayTeam || parsedTeams.away;
 
-      let legResult = null;
-      outer:
-      for (const path of paths) {
-        for (const dateStr of datesToTry) {
-          const events = await espnScores(path, dateStr);
-          const match = events.find(ev => {
-            const name = ev.name || ev.shortName || '';
-            return teamsMatch(homeTeam, name) || teamsMatch(awayTeam, name);
-          });
-          if (match) {
-            legResult = determineLegResult({ ...leg, homeTeam, awayTeam }, match);
-            if (legResult) break outer;
+        let legResult = null;
+        outer:
+        for (const path of paths) {
+          for (const dateStr of datesToTry) {
+            const events = await espnScores(path, dateStr);
+            const match = events.find(ev => {
+              const name = ev.name || ev.shortName || '';
+              return teamsMatch(homeTeam, name) || teamsMatch(awayTeam, name);
+            });
+            if (match) {
+              legResult = determineLegResult({ ...leg, homeTeam, awayTeam }, match);
+              if (legResult) break outer;
+            }
           }
         }
-      }
 
-      if (legResult) {
-        leg.result = legResult;
-        saveHistory(); // persist each leg result immediately as it's found
-      } else {
+        if (legResult) {
+          leg.result = legResult;
+          saveHistory(); // persist each leg result immediately as it's found
+        } else {
+          allResolved = false;
+        }
+      } catch(e) {
+        console.warn('ESPN check failed for leg:', leg.match, e.message);
         allResolved = false;
       }
     }
@@ -1465,6 +1660,7 @@ async function autoCheckPendingBets() {
       const legResults = entry.legs.map(l => l.result);
       entry.result = legResults.every(r => r === 'won' || r === 'void') ? 'won' : 'lost';
       entry.autoChecked = true;
+      entry._justUpdated = true;
       updated++;
     }
   }
@@ -1524,6 +1720,9 @@ function renderHistory() {
   roiEl.className = 'stat-val ' + (roi === null ? '' : roi >= 0 ? 'green' : 'red');
 
   // Render cards
+  // Render ROI chart
+  renderROIChart();
+
   list.innerHTML = betHistory.map(entry => {
     const d = new Date(entry.date);
     const dateStr = d.toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
@@ -1584,6 +1783,50 @@ function renderHistory() {
       </div>
     </div>`;
   }).join('');
+
+  // Apply just-updated flash to newly settled cards
+  betHistory.forEach((entry, i) => {
+    if (entry._justUpdated) {
+      const card = list.children[i];
+      if (card) card.classList.add('just-updated');
+      delete entry._justUpdated;
+    }
+  });
+}
+
+function renderROIChart() {
+  const svg = document.getElementById('roiChart');
+  if (!svg) return;
+  const settled = betHistory.filter(b => b.result === 'won' || b.result === 'lost');
+  if (settled.length < 2) {
+    svg.innerHTML = '<text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#555" font-size="12" font-family="monospace">Log more bets to see ROI chart</text>';
+    return;
+  }
+  const STAKE = 10;
+  let running = 0;
+  const points = [0];
+  for (const bet of settled) {
+    if (bet.result === 'won') running += STAKE * ((bet.combinedOdds || 1) - 1);
+    else running -= STAKE;
+    points.push(running);
+  }
+  const W = 600, H = 70;
+  const minV = Math.min(0, ...points), maxV = Math.max(0, ...points);
+  const range = (maxV - minV) || 10;
+  const toX = i => (i / (points.length - 1)) * W;
+  const toY = v => H - 8 - ((v - minV) / range) * (H - 16);
+  const zeroY = toY(0);
+  const color = running >= 0 ? '#00e676' : '#ef5350';
+  const pts = points.map((v, i) => `${toX(i).toFixed(1)},${toY(v).toFixed(1)}`).join(' ');
+  const label = (running >= 0 ? '+' : '') + '$' + running.toFixed(2);
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = `
+    <line x1="0" y1="${zeroY.toFixed(1)}" x2="${W}" y2="${zeroY.toFixed(1)}" stroke="#333" stroke-dasharray="4,3" stroke-width="1"/>
+    <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="${toX(points.length-1).toFixed(1)}" cy="${toY(running).toFixed(1)}" r="4" fill="${color}"/>
+    <text x="${(toX(points.length-1)-6).toFixed(1)}" y="${(toY(running)-8).toFixed(1)}" text-anchor="end" fill="${color}" font-size="11" font-weight="bold" font-family="monospace">${label}</text>
+    <text x="4" y="12" fill="#555" font-size="10" font-family="monospace">ROI (${settled.length} bets, $${STAKE}/stake)</text>
+  `;
 }
 
 // Load history on startup
