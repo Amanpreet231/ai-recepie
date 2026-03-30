@@ -445,7 +445,10 @@
   <div id="historySection">
     <div class="section-header">
       <h3>📊 Bet History & Tracker <span class="count-badge" id="historyCount">0</span></h3>
-      <button class="btn btn-secondary btn-small" onclick="clearHistory()" id="clearHistoryBtn" style="display:none">🗑 Clear All</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-secondary btn-small" id="checkResultsBtn" onclick="autoCheckPendingBets()">🔄 Check Results</button>
+        <button class="btn btn-secondary btn-small" onclick="clearHistory()" id="clearHistoryBtn" style="display:none">🗑 Clear All</button>
+      </div>
     </div>
 
     <!-- Stats bar -->
@@ -503,6 +506,7 @@
 let allBets = [];
 let filteredBets = [];
 let customLegs = [];
+let currentMultiLegs = []; // full structured data for the current best multi
 let currentSortCol = 'prob';
 let currentSortDir = 'desc';
 let marketFilter = 'all';
@@ -568,6 +572,9 @@ window.onload = () => {
     showAlert('API key loaded. Ready to scan!', 'success');
   }
   updateRangeDisplay();
+  renderHistory();
+  // Auto-check any pending bets on load
+  autoCheckPendingBets();
 };
 
 function saveApiKey() {
@@ -718,10 +725,10 @@ async function startScan() {
     filteredBets = [...allBets].sort((a, b) => a.odds - b.odds);
     renderTable();
 
-    const freshCount = targets.filter(s => !cacheGet(`odds_${s.key}_${regions}_${markets}`)).length;
-    // freshCount here is 0 since we just fetched them, recalculate from fresh list
     setStatus(`✅ ${allBets.length} bets across ${targets.length} sports — ${markets.split(',').length} market type(s)`, false);
     showAlert(`✅ Found ${allBets.length} bets. Used ${fresh.length} API credit(s) — ${cached.length} sport(s) loaded free from cache (valid 30 min).`, 'success');
+    // Auto-check any pending logged bets after each scan
+    autoCheckPendingBets();
 
   } catch (err) {
     showAlert('Error: ' + (err.message || 'Check your API key'), 'error');
@@ -957,6 +964,22 @@ function renderBestMulti(multi) {
     grid.appendChild(a);
   });
 
+  // Save full structured leg data for logging
+  currentMultiLegs = multi.legs.map(leg => ({
+    match:     leg.match,
+    homeTeam:  leg.homeTeam,
+    awayTeam:  leg.awayTeam,
+    sport:     `${leg.sportEmoji} ${leg.sportLabel}`,
+    sportCat:  leg.sportCat,
+    sportKey:  leg.sportKey,
+    market:    leg.market,
+    selection: leg.selection,
+    point:     leg.point,
+    odds:      leg.odds,
+    startTime: leg.startTime,
+    result:    'pending',
+  }));
+
   updateReturns();
 }
 
@@ -1110,32 +1133,25 @@ function saveHistory() {
 }
 
 function logCurrentMulti() {
-  const legs = Array.from(document.querySelectorAll('.leg-card')).map(card => ({
-    match:     card.querySelector('.leg-match')?.textContent?.trim() || '',
-    sport:     card.querySelector('.leg-sport')?.textContent?.trim() || '',
-    market:    card.querySelector('.market-pill')?.textContent?.trim() || '',
-    selection: card.querySelector('.leg-selection')?.textContent?.replace('✓','').trim() || '',
-    odds:      parseFloat(card.querySelector('.leg-odds')?.textContent) || 0,
-  }));
+  if (!currentMultiLegs.length) { showAlert('No multi to log — run a scan first', 'error'); return; }
 
-  if (!legs.length) { showAlert('No multi to log — run a scan first', 'error'); return; }
-
-  const combinedOdds = legs.reduce((a, b) => a * b.odds, 1);
+  const combinedOdds = currentMultiLegs.reduce((a, b) => a * b.odds, 1);
   const stake = parseFloat(document.getElementById('stakeAmount').value) || 20;
 
   const entry = {
     id: Date.now(),
     date: new Date().toISOString(),
-    legs,
+    legs: currentMultiLegs.map(l => ({ ...l })), // deep copy
     combinedOdds,
     stake,
-    result: 'pending', // 'pending' | 'won' | 'lost'
+    result: 'pending',
+    autoChecked: false,
   };
 
   betHistory.unshift(entry);
   saveHistory();
   renderHistory();
-  showAlert('Multi logged! Mark it Won or Lost after the games finish.', 'success');
+  showAlert('✅ Multi logged! Results will auto-update once games finish.', 'success');
 }
 
 function setResult(id, result) {
@@ -1165,6 +1181,162 @@ function clearHistory() {
   betHistory = [];
   saveHistory();
   renderHistory();
+}
+
+// ─── ESPN Auto-Result Checker ─────────────────────────────────────────────────
+// Maps our sport categories to ESPN API paths
+const ESPN_MAP = {
+  baseball:          ['baseball/mlb', 'baseball/college-baseball'],
+  basketball:        ['basketball/nba', 'basketball/mens-college-basketball'],
+  americanfootball:  ['football/nfl', 'football/college-football'],
+  icehockey:         ['hockey/nhl'],
+  aussierules:       ['australian-football/afl'],
+  rugby:             ['rugby-league/nrl', 'rugby-union/world-cup'],
+  soccer:            ['soccer/eng.1','soccer/esp.1','soccer/ger.1','soccer/ita.1','soccer/fra.1','soccer/uefa.champions'],
+  mma:               [], // ESPN doesn't have MMA scores
+  cricket:           [], // not on ESPN scoreboard API
+};
+
+function normTeam(s) {
+  return (s || '').toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function teamsMatch(a, b) {
+  const na = normTeam(a), nb = normTeam(b);
+  if (na === nb) return true;
+  // match last word (team nickname): "Kansas City Royals" vs "Royals"
+  const lastA = na.split(' ').pop(), lastB = nb.split(' ').pop();
+  if (lastA && lastA.length > 3 && lastA === lastB) return true;
+  // one contains the other
+  if (na.includes(nb) || nb.includes(na)) return true;
+  return false;
+}
+
+async function espnScores(sportPath, dateStr) {
+  try {
+    const url = `https://site.api.espn.com/apis/site/v2/sports/${sportPath}/scoreboard?dates=${dateStr}`;
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.events || [];
+  } catch { return []; }
+}
+
+function determineLegResult(leg, espnEvent) {
+  const comp = espnEvent.competitions?.[0];
+  if (!comp) return null;
+  if (!comp.status?.type?.completed) return null; // game not finished
+
+  const home = comp.competitors?.find(c => c.homeAway === 'home');
+  const away = comp.competitors?.find(c => c.homeAway === 'away');
+  if (!home || !away) return null;
+
+  const homeScore = parseFloat(home.score) || 0;
+  const awayScore = parseFloat(away.score) || 0;
+  const total     = homeScore + awayScore;
+  const sel       = leg.selection || '';
+  const point     = parseFloat(leg.point) || 0;
+
+  if (leg.market === 'totals') {
+    if (sel.toLowerCase().startsWith('over'))  return total > point  ? 'won' : total === point ? 'void' : 'lost';
+    if (sel.toLowerCase().startsWith('under')) return total < point  ? 'won' : total === point ? 'void' : 'lost';
+  }
+
+  if (leg.market === 'h2h') {
+    if (homeScore === awayScore) return 'void'; // draw (rare in most sports)
+    const winnerName = homeScore > awayScore ? home.team.displayName : away.team.displayName;
+    return teamsMatch(winnerName, sel) ? 'won' : 'lost';
+  }
+
+  if (leg.market === 'spreads') {
+    // Figure out which side the selection is
+    const homeName = home.team.displayName;
+    const isHomeSide = teamsMatch(leg.homeTeam || '', homeName) && teamsMatch(sel, leg.homeTeam || '')
+                    || teamsMatch(sel, homeName);
+    if (isHomeSide) {
+      const adj = homeScore + point;
+      return adj > awayScore ? 'won' : adj === awayScore ? 'void' : 'lost';
+    } else {
+      const adj = awayScore + point;
+      return adj > homeScore ? 'won' : adj === homeScore ? 'void' : 'lost';
+    }
+  }
+  return null;
+}
+
+async function autoCheckPendingBets() {
+  const pending = betHistory.filter(e => e.result === 'pending');
+  if (!pending.length) return;
+
+  const btn = document.getElementById('checkResultsBtn');
+  if (btn) { btn.textContent = '🔄 Checking...'; btn.disabled = true; }
+
+  let updated = 0;
+
+  for (const entry of pending) {
+    // Only attempt once all legs should have finished (last start + 4h)
+    const latestStart = Math.max(...entry.legs.map(l => new Date(l.startTime || 0).getTime()));
+    if (Date.now() < latestStart + 4 * 3600 * 1000) continue;
+
+    let allResolved = true;
+
+    for (const leg of entry.legs) {
+      if (leg.result && leg.result !== 'pending') continue;
+
+      const paths = ESPN_MAP[leg.sportCat] || [];
+      if (!paths.length) { allResolved = false; continue; } // sport not supported
+
+      const gameDate = new Date(leg.startTime || Date.now());
+      // Try yesterday, today and tomorrow to handle timezone differences
+      const datesToTry = [-1, 0, 1].map(d => {
+        const dt = new Date(gameDate);
+        dt.setDate(dt.getDate() + d);
+        return dt.toISOString().slice(0, 10).replace(/-/g, '');
+      });
+
+      let legResult = null;
+      outer:
+      for (const path of paths) {
+        for (const dateStr of datesToTry) {
+          const events = await espnScores(path, dateStr);
+          const match = events.find(ev => {
+            const name = ev.name || ev.shortName || '';
+            return teamsMatch(leg.homeTeam || '', name) || teamsMatch(leg.awayTeam || '', name)
+                || (leg.homeTeam && leg.awayTeam && name.includes(normTeam(leg.homeTeam).split(' ').pop()));
+          });
+          if (match) {
+            legResult = determineLegResult(leg, match);
+            if (legResult) break outer;
+          }
+        }
+      }
+
+      if (legResult) {
+        leg.result = legResult;
+      } else {
+        allResolved = false;
+      }
+    }
+
+    if (allResolved) {
+      const legResults = entry.legs.map(l => l.result);
+      entry.result = legResults.every(r => r === 'won') ? 'won'
+                   : legResults.some(r => r === 'void') && legResults.every(r => r === 'won' || r === 'void') ? 'won'
+                   : 'lost';
+      entry.autoChecked = true;
+      updated++;
+    }
+  }
+
+  if (btn) { btn.textContent = '🔄 Check Results'; btn.disabled = false; }
+
+  if (updated > 0) {
+    saveHistory();
+    renderHistory();
+    showAlert(`✅ Auto-checked results — ${updated} multi(s) updated!`, 'success');
+  } else if (pending.length > 0) {
+    showAlert('⏳ Pending bets checked — games may still be in progress or sport not yet supported by ESPN.', 'info');
+  }
 }
 
 function renderHistory() {
@@ -1220,12 +1392,25 @@ function renderHistory() {
       ? `<span class="pnl-badge ${pnlVal >= 0 ? 'pnl-pos' : 'pnl-neg'}">${pnlVal >= 0 ? '+' : ''}$${pnlVal.toFixed(2)}</span>`
       : '';
 
-    const legsHtml = entry.legs.map(l => `
-      <div class="history-leg-pill">
-        <div class="hleg-market">${l.sport} · ${l.market}</div>
-        <span class="hleg-pick">${l.selection}</span>
+    const legsHtml = entry.legs.map(l => {
+      const legIcon = l.result === 'won'  ? '✅'
+                    : l.result === 'lost' ? '❌'
+                    : l.result === 'void' ? '↩️'
+                    : '⏳';
+      const legStyle = l.result === 'won'  ? 'border-color:var(--green)'
+                     : l.result === 'lost' ? 'border-color:var(--red);opacity:0.7'
+                     : l.result === 'void' ? 'border-color:var(--text3)'
+                     : '';
+      const mktLabel = { h2h:'Winner', totals:'O/U', spreads:'Handicap' }[l.market] || l.market;
+      return `<div class="history-leg-pill" style="${legStyle}">
+        <span style="font-size:14px">${legIcon}</span>
+        <div style="flex:1;min-width:0">
+          <div class="hleg-market">${l.sport || ''} · ${mktLabel}</div>
+          <span class="hleg-pick" title="${l.match || ''}">${l.selection}</span>
+        </div>
         <span class="hleg-odds">${l.odds.toFixed(2)}</span>
-      </div>`).join('');
+      </div>`;
+    }).join('');
 
     return `
     <div class="history-card ${entry.result}">
@@ -1233,9 +1418,10 @@ function renderHistory() {
         <div style="display:flex;align-items:center;gap:12px">
           <span class="history-odds">${entry.combinedOdds.toFixed(2)}x</span>
           <span style="font-size:12px;color:var(--text2)">${entry.legs.length} legs</span>
-          ${entry.result === 'won'     ? '<span style="color:var(--green);font-weight:700">✅ WON</span>'
-          : entry.result === 'lost'   ? '<span style="color:var(--red);font-weight:700">❌ LOST</span>'
+          ${entry.result === 'won'  ? '<span style="color:var(--green);font-weight:700">✅ WON</span>'
+          : entry.result === 'lost' ? '<span style="color:var(--red);font-weight:700">❌ LOST</span>'
           : '<span style="color:var(--gold);font-size:12px">⏳ Pending</span>'}
+          ${entry.autoChecked ? '<span style="font-size:10px;background:rgba(0,230,118,0.1);border:1px solid rgba(0,230,118,0.3);color:var(--green);padding:1px 6px;border-radius:4px">🤖 Auto</span>' : ''}
           ${pnlHtml}
         </div>
         <div style="display:flex;align-items:center;gap:8px">
