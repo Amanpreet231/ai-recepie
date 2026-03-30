@@ -609,17 +609,28 @@ function cacheClear() {
   Object.keys(localStorage).filter(k => k.startsWith('odds_')).forEach(k => localStorage.removeItem(k));
 }
 
-// Top sports to scan by default (covers 95% of betting interest, uses ~8 requests)
+// Top sports for Smart scan — exact keys as returned by The Odds API
+// Pick 1-2 per sport category to keep request count low (~10 max)
 const TOP_SPORT_KEYS = [
-  'soccer_epl','soccer_uefa_champs_league','soccer_australia_aleague',
-  'basketball_nba','basketball_nbl',
-  'cricket_ipl','cricket_odi',
-  'aussie_rules_afl',
-  'rugbyleague_nrl',
-  'mma_mixed_martial_arts',
-  'baseball_mlb',
-  'icehockey_nhl',
+  'soccer_epl',                    // English Premier League
+  'soccer_uefa_champs_league',     // Champions League
+  'soccer_australia_aleague',      // A-League
+  'soccer_india_super_league',     // ISL
+  'basketball_nba',                // NBA
+  'basketball_nbl',                // NBL Australia
+  'cricket_ipl',                   // IPL
+  'cricket_international_t20s',    // International T20
+  'aussierules_afl',               // AFL
+  'rugbyleague_nrl',               // NRL
+  'mma_mixed_martial_arts',        // MMA/UFC
+  'baseball_mlb',                  // MLB
+  'icehockey_nhl',                 // NHL
+  'tennis_atp_french_open',        // Tennis
+  'americanfootball_nfl',          // NFL
 ];
+
+// Smart scan fallback: if exact keys fail, pick by category (max per category)
+const SMART_MAX_PER_CAT = { soccer: 3, basketball: 2, cricket: 2, aussierules: 1, rugby: 1, mma: 1, baseball: 1, icehockey: 1, tennis: 1, americanfootball: 1 };
 
 // ─── API ──────────────────────────────────────────────────────────────────────
 const API = 'https://api.the-odds-api.com/v4';
@@ -660,6 +671,11 @@ async function fetchOdds(sportKey, regions, markets) {
 async function startScan() {
   if (!apiKey) { showAlert('Please save your API key first', 'error'); return; }
   if (scanning) return;
+  const creditsLeft = parseInt(document.getElementById('requestsLeft').textContent);
+  if (!isNaN(creditsLeft) && creditsLeft <= 0) {
+    showAlert('❌ API credits exhausted. Credits reset on the 1st of each month. Get a new free key at the-odds-api.com to continue scanning.', 'error');
+    return;
+  }
   scanning = true;
   allBets = []; filteredBets = []; customLegs = [];
   document.getElementById('scanBtn').disabled = true;
@@ -685,9 +701,22 @@ async function startScan() {
       // User picked a specific sport — scan only those (cheapest)
       targets = targets.filter(s => getSportCat(s.key) === sportFilter);
     } else if (scanMode === 'smart') {
-      // Smart mode: only scan top sports — uses ~8-12 requests
-      targets = targets.filter(s => TOP_SPORT_KEYS.some(k => s.key.includes(k.split('_')[0]) || TOP_SPORT_KEYS.includes(s.key)));
-      if (targets.length === 0) targets = allSports.filter(s => s.active).slice(0, 12);
+      // Try exact key match first
+      let smartTargets = targets.filter(s => TOP_SPORT_KEYS.includes(s.key));
+      // Fallback: pick by category limits if exact keys didn't match enough
+      if (smartTargets.length < 5) {
+        const catCounts = {};
+        smartTargets = [];
+        for (const s of targets) {
+          const cat = getSportCat(s.key);
+          const max = SMART_MAX_PER_CAT[cat] || 1;
+          if ((catCounts[cat] || 0) < max) {
+            smartTargets.push(s);
+            catCounts[cat] = (catCounts[cat] || 0) + 1;
+          }
+        }
+      }
+      targets = smartTargets;
     }
     // 'full' mode: scan everything (uses ~86 requests — costs more)
 
