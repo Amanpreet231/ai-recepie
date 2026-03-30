@@ -81,7 +81,7 @@
 
   /* Controls */
   .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 10px; margin-bottom: 20px; }
-  .control-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 11px 13px; }
+  .control-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 11px 13px; box-shadow: 0 2px 12px rgba(0,0,0,0.4); }
   .control-card label { display: block; font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
   .control-card select, .control-card input[type="number"] { width: 100%; }
   .range-display { display: flex; justify-content: space-between; margin-top: 4px; font-size: 11px; color: var(--text2); }
@@ -104,12 +104,12 @@
   .alert-info { background: rgba(30,136,229,0.1); border: 1px solid rgba(30,136,229,0.3); color: #64b5f6; }
 
   /* Best Multi Card */
-  .best-multi-card { background: linear-gradient(135deg, #0a2040, #0d2a4a); border: 1px solid #1e4a7f; border-top: 3px solid var(--green); border-radius: var(--radius); padding: 20px; margin-bottom: 20px; display: none; }
+  .best-multi-card { background: linear-gradient(135deg, #0a2040, #0d2a4a); border: 1px solid #1e4a7f; border-top: 3px solid var(--green); border-radius: var(--radius); padding: 20px; margin-bottom: 20px; display: none; box-shadow: 0 2px 12px rgba(0,0,0,0.4); }
   .best-multi-card.visible { display: block; }
   .multi-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; flex-wrap: wrap; gap: 10px; }
   .multi-title { display: flex; align-items: center; gap: 12px; }
   .multi-title h2 { font-size: 18px; }
-  .odds-badge { background: linear-gradient(135deg, var(--green), #00acc1); color: #000; font-weight: 800; font-size: 24px; padding: 6px 18px; border-radius: 8px; line-height: 1; }
+  .odds-badge { background: linear-gradient(135deg, #00c853, #00e676); color: #000; font-weight: 800; font-size: 24px; padding: 6px 18px; border-radius: 20px; line-height: 1; letter-spacing: 0.02em; }
   .multi-meta { font-size: 12px; color: var(--text2); margin-bottom: 16px; }
   .multi-meta .window-pill { background: rgba(0,230,118,0.1); border: 1px solid rgba(0,230,118,0.3); color: var(--green); border-radius: 4px; padding: 2px 8px; font-size: 11px; margin-left: 8px; }
   .multi-stats { display: flex; gap: 20px; flex-wrap: wrap; }
@@ -126,7 +126,7 @@
     cursor: pointer; text-decoration: none; color: inherit; display: block;
     transition: all 0.15s;
   }
-  .leg-card:hover { background: var(--bg3); border-color: var(--green); box-shadow: 0 2px 12px rgba(0,230,118,0.15); transform: translateY(-1px); }
+  .leg-card:hover { background: var(--bg3); border-color: var(--green); box-shadow: 0 4px 20px rgba(0,230,118,0.15); transform: translateY(-2px); }
   .leg-card:hover .stake-hint { opacity: 1; }
   .stake-hint { position: absolute; top: 8px; right: 10px; background: var(--green); color: #000; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; opacity: 0; transition: opacity 0.15s; }
   .leg-number { font-size: 10px; color: var(--text3); margin-bottom: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -165,7 +165,7 @@
   .filter-btn { padding: 6px 12px; border-radius: 20px; font-size: 12px; border: 1px solid var(--border); background: var(--bg3); color: var(--text2); cursor: pointer; transition: all 0.15s; }
   .filter-btn:hover, .filter-btn.active { background: var(--blue2); border-color: var(--blue2); color: #fff; }
 
-  .table-wrap { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: auto; margin-bottom: 20px; }
+  .table-wrap { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: auto; margin-bottom: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.4); }
   table { width: 100%; border-collapse: collapse; min-width: 720px; }
   thead th { background: var(--card2); color: var(--text2); text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; padding: 10px 12px; text-align: left; position: sticky; top: 0; border-bottom: 1px solid var(--border); cursor: pointer; user-select: none; white-space: nowrap; }
   thead th:hover { color: var(--text); }
@@ -208,18 +208,20 @@
   footer a { color: var(--text2); }
 
   ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { background: var(--bg2); }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-track { background: #080f1a; }
+  ::-webkit-scrollbar-thumb { background: #1a2a3a; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #253545; }
 
   /* Bet History */
-  .stats-bar { display:flex; gap:10px; flex-wrap:wrap; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; margin-bottom:16px; }
+  .stats-bar { display:flex; gap:10px; flex-wrap:wrap; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; margin-bottom:16px; box-shadow: 0 2px 12px rgba(0,0,0,0.4); }
   .stat-box { flex:1; min-width:80px; text-align:center; }
   .stat-val { font-size:18px; font-weight:700; }
   .stat-val.green { color:var(--green); }
   .stat-val.red { color:var(--red); }
   .stat-val.gold { color:var(--gold); }
   .stat-lbl { font-size:11px; color:var(--text2); margin-top:2px; }
-  .history-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; margin-bottom:10px; }
+  .history-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; margin-bottom:10px; box-shadow: 0 2px 12px rgba(0,0,0,0.4); transition: all 0.15s ease; }
+  .history-card:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,230,118,0.15); }
   .history-card.won { border-left:3px solid var(--green); }
   .history-card.lost { border-left:3px solid var(--red); }
   .history-card.pending { border-left:3px solid var(--gold); }
@@ -348,6 +350,15 @@
       transition-duration: 0.01ms !important;
     }
   }
+
+  /* Selection color */
+  ::selection { background: rgba(0,230,118,0.25); color: #fff; }
+
+  /* Focus ring */
+  *:focus-visible { outline: 2px solid #00e676; outline-offset: 2px; }
+
+  /* Section dividers */
+  .section + .section { border-top: 1px solid #111; margin-top: 24px; padding-top: 24px; }
 </style>
 </head>
 <body>
@@ -586,6 +597,9 @@
       <div style="display:flex;gap:8px">
         <button class="btn btn-secondary btn-small" id="checkResultsBtn" onclick="autoCheckPendingBets()">🔄 Check Results</button>
         <button class="btn btn-secondary btn-small" onclick="clearHistory()" id="clearHistoryBtn" style="display:none">🗑 Clear All</button>
+        <button onclick="exportHistory()" style="background:#1a2a3a;border:1px solid #333;color:#888;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:0.82rem;">⬇ Export</button>
+        <button onclick="document.getElementById('importFile').click()" style="background:#1a2a3a;border:1px solid #333;color:#888;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:0.82rem;">⬆ Import</button>
+        <input type="file" id="importFile" accept=".json" style="display:none" onchange="importHistory(event)">
       </div>
     </div>
 
@@ -1579,6 +1593,51 @@ function clearHistory() {
   betHistory = [];
   saveHistory();
   renderHistory();
+}
+
+function exportHistory() {
+  if (!betHistory.length) {
+    showStatus('No history to export.', 'warn');
+    return;
+  }
+  const data = JSON.stringify(betHistory, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `stake-multis-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showStatus(`Exported ${betHistory.length} bets.`, 'success');
+}
+
+function importHistory(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const imported = JSON.parse(e.target.result);
+      if (!Array.isArray(imported)) throw new Error('Invalid format');
+      // Merge: add entries not already in history (by date+legs check)
+      let added = 0;
+      for (const entry of imported) {
+        const exists = betHistory.some(b => b.date === entry.date && b.combinedOdds === entry.combinedOdds);
+        if (!exists) {
+          betHistory.push(entry);
+          added++;
+        }
+      }
+      betHistory.sort((a,b) => new Date(b.date) - new Date(a.date));
+      saveHistory();
+      renderHistory();
+      showStatus(`Imported ${added} new entries (${imported.length - added} duplicates skipped).`, 'success');
+    } catch(err) {
+      showStatus('Import failed: invalid JSON file.', 'error');
+    }
+    event.target.value = ''; // reset so same file can be re-imported
+  };
+  reader.readAsText(file);
 }
 
 // ─── ESPN Auto-Result Checker ─────────────────────────────────────────────────
