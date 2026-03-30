@@ -1,0 +1,9 @@
+name = "stake-multi-proxy"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# After running: wrangler kv:namespace create ODDS_CACHE
+# paste the id below
+[[kv_namespaces]]
+binding = "ODDS_CACHE"
+id = "PASTE_YOUR_KV_NAMESPACE_ID_HERE"
