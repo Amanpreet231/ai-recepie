@@ -360,6 +360,31 @@
   /* Section dividers */
   .section + .section { border-top: 1px solid #111; margin-top: 24px; padding-top: 24px; }
 </style>
+<meta name="theme-color" content="#00e676">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MultiBuilder">
+<meta name="mobile-web-app-capable" content="yes">
+<link id="manifestLink" rel="manifest">
+<script>
+(function() {
+  const manifest = {
+    name: "Stake Multi Builder",
+    short_name: "MultiBuilder",
+    description: "Build winning multi bets for Stake.com",
+    start_url: "./",
+    display: "standalone",
+    background_color: "#080f1a",
+    theme_color: "#00e676",
+    orientation: "portrait-primary",
+    icons: [
+      { src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23080f1a'/><text y='.9em' font-size='80' x='10'>⚡</text></svg>", sizes: "any", type: "image/svg+xml", purpose: "any maskable" }
+    ]
+  };
+  const blob = new Blob([JSON.stringify(manifest)], {type: 'application/manifest+json'});
+  document.getElementById('manifestLink').href = URL.createObjectURL(blob);
+})();
+</script>
 </head>
 <body>
 
@@ -371,6 +396,9 @@
   <div class="header-badges">
     <div class="badge live" id="liveBadge" style="display:none">● LIVE</div>
     <div class="badge" id="requestsBadge" style="display:none">API: <strong id="requestsLeft">–</strong> left</div>
+    <button id="installBtn" onclick="installApp()" style="display:none;background:#00e676;color:#000;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:0.8rem;font-weight:700;align-items:center;gap:6px;">
+      📲 Install App
+    </button>
     <div id="creditBar" style="margin-top:6px;min-width:120px;">
       <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
         <span style="color:#888;font-size:0.75rem;">API Credits</span>
@@ -2091,6 +2119,60 @@ document.addEventListener('keydown', function(e) {
       break;
   }
 });
+
+// PWA Service Worker
+if ('serviceWorker' in navigator) {
+  const swCode = `
+const CACHE = 'smb-v1';
+const SHELL = [location.href];
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
+});
+self.addEventListener('activate', e => {
+  e.waitUntil(clients.claim());
+});
+self.addEventListener('fetch', e => {
+  // Network-first for API calls, cache-first for the app shell
+  if (e.request.url.includes('api.the-odds-api.com') || e.request.url.includes('workers.dev') || e.request.url.includes('espn.com')) {
+    e.respondWith(fetch(e.request).catch(() => new Response('{}', {headers:{'Content-Type':'application/json'}})));
+    return;
+  }
+  e.respondWith(
+    caches.match(e.request).then(cached => cached || fetch(e.request).then(resp => {
+      const clone = resp.clone();
+      caches.open(CACHE).then(c => c.put(e.request, clone));
+      return resp;
+    }))
+  );
+});
+  `;
+  const swBlob = new Blob([swCode], {type: 'application/javascript'});
+  const swUrl = URL.createObjectURL(swBlob);
+  navigator.serviceWorker.register(swUrl, {scope: './'})
+    .then(() => console.log('[PWA] Service worker registered'))
+    .catch(e => console.warn('[PWA] SW registration failed:', e));
+}
+
+// PWA Install prompt
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  const btn = document.getElementById('installBtn');
+  if (btn) btn.style.display = 'inline-flex';
+});
+window.addEventListener('appinstalled', () => {
+  const btn = document.getElementById('installBtn');
+  if (btn) btn.style.display = 'none';
+  deferredInstallPrompt = null;
+});
+function installApp() {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  deferredInstallPrompt.userChoice.then(choice => {
+    deferredInstallPrompt = null;
+  });
+}
 </script>
 </body>
 </html>
