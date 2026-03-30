@@ -572,8 +572,8 @@ window.onload = () => {
     showAlert('API key loaded. Ready to scan!', 'success');
   }
   updateRangeDisplay();
+  updateCreditDisplay();
   renderHistory();
-  // Auto-check on load then every 5 minutes
   autoCheckPendingBets();
   setInterval(autoCheckPendingBets, 5 * 60 * 1000);
 };
@@ -591,23 +591,63 @@ function updateRangeDisplay() {
   document.getElementById('maxLegsVal').textContent = document.getElementById('maxLegsRange').value;
 }
 
-// ─── Cache (30 min TTL) ───────────────────────────────────────────────────────
-const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+// ─── Smart Tiered Cache ────────────────────────────────────────────────────────
+// TTL based on how soon the earliest game starts — far-future games change slowly
 
-function cacheSet(key, data) {
-  try { localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data })); } catch {}
+function computeSmartTTL(events) {
+  if (!Array.isArray(events) || !events.length) return 30 * 60 * 1000;
+  const earliest = Math.min(...events.map(e => new Date(e.commence_time || 0).getTime()));
+  const hoursAway = (earliest - Date.now()) / 3_600_000;
+  if (hoursAway < 0)   return  5 * 60 * 1000;   // live — refresh every 5 min
+  if (hoursAway < 12)  return 30 * 60 * 1000;   // <12h away — 30 min
+  if (hoursAway < 48)  return  2 * 60 * 60 * 1000; // 12-48h — 2 hours
+  return 6 * 60 * 60 * 1000;                     // 48h+ away — 6 hours
+}
+
+function cacheSet(key, data, ttl) {
+  try { localStorage.setItem(key, JSON.stringify({ ts: Date.now(), ttl: ttl || 30*60*1000, data })); } catch {}
 }
 function cacheGet(key) {
   try {
     const raw = localStorage.getItem(key);
     if (!raw) return null;
-    const { ts, data } = JSON.parse(raw);
-    if (Date.now() - ts > CACHE_TTL) { localStorage.removeItem(key); return null; }
+    const { ts, ttl, data } = JSON.parse(raw);
+    if (Date.now() - ts > (ttl || 30*60*1000)) { localStorage.removeItem(key); return null; }
     return data;
   } catch { return null; }
 }
 function cacheClear() {
   Object.keys(localStorage).filter(k => k.startsWith('odds_')).forEach(k => localStorage.removeItem(k));
+}
+
+// ─── Credit Usage Tracker ─────────────────────────────────────────────────────
+function logCreditUsage(count) {
+  try {
+    const log = JSON.parse(localStorage.getItem('creditLog') || '[]');
+    log.push({ ts: Date.now(), count });
+    // Keep only current month
+    const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+    const filtered = log.filter(e => e.ts >= monthStart.getTime());
+    localStorage.setItem('creditLog', JSON.stringify(filtered));
+    updateCreditDisplay();
+  } catch {}
+}
+function getMonthlyCreditsUsed() {
+  try {
+    const log = JSON.parse(localStorage.getItem('creditLog') || '[]');
+    const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+    return log.filter(e => e.ts >= monthStart.getTime()).reduce((a, e) => a + e.count, 0);
+  } catch { return 0; }
+}
+function updateCreditDisplay() {
+  const used = getMonthlyCreditsUsed();
+  const left = document.getElementById('requestsLeft').textContent;
+  const leftNum = parseInt(left);
+  const badge = document.getElementById('requestsBadge');
+  if (badge) {
+    badge.innerHTML = `API: <strong id="requestsLeft">${isNaN(leftNum) ? '–' : leftNum}</strong> left &nbsp;·&nbsp; used <strong>${used}</strong> this month`;
+    badge.style.display = '';
+  }
 }
 
 // Top sports for Smart scan — exact keys as returned by The Odds API
@@ -653,7 +693,7 @@ async function fetchSports() {
   const cached = cacheGet('odds_sports');
   if (cached) return cached;
   const data = await apiFetch(`${API}/sports?apiKey=${apiKey}&all=false`);
-  cacheSet('odds_sports', data);
+  cacheSet('odds_sports', data, 6 * 60 * 60 * 1000); // sports list changes rarely — 6h cache
   return data;
 }
 
@@ -663,12 +703,16 @@ async function fetchOdds(sportKey, regions, markets) {
   if (cached) return cached; // FREE — no API request used
   try {
     const data = await apiFetch(`${API}/sports/${sportKey}/odds?apiKey=${apiKey}&regions=${regions}&markets=${markets}&oddsFormat=decimal&dateFormat=iso`);
-    cacheSet(cacheKey, data);
+    const ttl = computeSmartTTL(data); // tiered TTL based on game proximity
+    cacheSet(cacheKey, data, ttl);
     return data;
   } catch { return []; }
 }
 
 // ─── Main Scan ────────────────────────────────────────────────────────────────
+let lastScanTime = 0;
+const MIN_SCAN_INTERVAL = 5 * 60 * 1000; // 5 min debounce
+
 async function startScan() {
   if (!apiKey) { showAlert('Please save your API key first', 'error'); return; }
   if (scanning) return;
@@ -677,6 +721,13 @@ async function startScan() {
     showAlert('❌ API credits exhausted. Credits reset on the 1st of each month. Get a new free key at the-odds-api.com to continue scanning.', 'error');
     return;
   }
+  const timeSinceLast = Date.now() - lastScanTime;
+  if (lastScanTime > 0 && timeSinceLast < MIN_SCAN_INTERVAL) {
+    const waitMins = Math.ceil((MIN_SCAN_INTERVAL - timeSinceLast) / 60000);
+    showAlert(`⏳ Please wait ${waitMins} more minute(s) before scanning again (prevents wasting API credits).`, 'info');
+    return;
+  }
+  lastScanTime = Date.now();
   scanning = true;
   allBets = []; filteredBets = []; customLegs = [];
   document.getElementById('scanBtn').disabled = true;
@@ -756,7 +807,10 @@ async function startScan() {
     renderTable();
 
     setStatus(`✅ ${allBets.length} bets across ${targets.length} sports — ${markets.split(',').length} market type(s)`, false);
-    showAlert(`✅ Found ${allBets.length} bets. Used ${fresh.length} API credit(s) — ${cached.length} sport(s) loaded free from cache (valid 30 min).`, 'success');
+    // Log credits used this scan (only fresh fetches cost credits)
+    if (fresh.length > 0) logCreditUsage(fresh.length);
+    const ttlNote = fresh.length > 0 ? `Cache valid up to 6h for far-future games.` : `All from cache — 0 credits used.`;
+    showAlert(`✅ Found ${allBets.length} bets. Used ${fresh.length} credit(s) — ${cached.length} from cache 🆓. ${ttlNote}`, 'success');
     // Auto-check any pending logged bets after each scan
     autoCheckPendingBets();
 
