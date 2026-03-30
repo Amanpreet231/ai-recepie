@@ -1213,18 +1213,45 @@ function clearHistory() {
 }
 
 // ─── ESPN Auto-Result Checker ─────────────────────────────────────────────────
-// Maps our sport categories to ESPN API paths
 const ESPN_MAP = {
-  baseball:          ['baseball/mlb', 'baseball/college-baseball'],
-  basketball:        ['basketball/nba', 'basketball/mens-college-basketball'],
-  americanfootball:  ['football/nfl', 'football/college-football'],
-  icehockey:         ['hockey/nhl'],
-  aussierules:       ['australian-football/afl'],
-  rugby:             ['rugby-league/nrl', 'rugby-union/world-cup'],
-  soccer:            ['soccer/eng.1','soccer/esp.1','soccer/ger.1','soccer/ita.1','soccer/fra.1','soccer/uefa.champions'],
-  mma:               [], // ESPN doesn't have MMA scores
-  cricket:           [], // not on ESPN scoreboard API
+  baseball:         ['baseball/mlb', 'baseball/college-baseball'],
+  basketball:       ['basketball/nba', 'basketball/mens-college-basketball'],
+  americanfootball: ['football/nfl', 'football/college-football'],
+  icehockey:        ['hockey/nhl'],
+  aussierules:      ['australian-football/afl'],
+  rugby:            ['rugby-league/nrl'],
+  soccer:           ['soccer/eng.1','soccer/esp.1','soccer/ger.1','soccer/ita.1','soccer/fra.1','soccer/uefa.champions','soccer/bra.1','soccer/arg.1'],
+  mma:              [],
+  cricket:          [],
 };
+
+// Derive sportCat from stored sport display string e.g. "⚾ MLB" → "baseball"
+function sportCatFromDisplay(sportStr) {
+  const s = (sportStr || '').toLowerCase();
+  if (s.includes('mlb') || s.includes('baseball'))    return 'baseball';
+  if (s.includes('nba') || s.includes('basketball'))  return 'basketball';
+  if (s.includes('nfl') || s.includes('american football')) return 'americanfootball';
+  if (s.includes('nhl') || s.includes('hockey'))      return 'icehockey';
+  if (s.includes('afl') || s.includes('aussie'))      return 'aussierules';
+  if (s.includes('nrl') || s.includes('rugby'))       return 'rugby';
+  if (s.includes('soccer') || s.includes('football') || s.includes('epl') || s.includes('champions') || s.includes('bundesliga') || s.includes('laliga') || s.includes('serie')) return 'soccer';
+  if (s.includes('mma') || s.includes('ufc'))         return 'mma';
+  if (s.includes('cricket') || s.includes('ipl') || s.includes('t20')) return 'cricket';
+  return null;
+}
+
+// Normalise market label → API key  (handles old entries stored with display label)
+function normaliseMarket(m) {
+  if (!m) return m;
+  const map = { 'handicap': 'spreads', 'match winner': 'h2h', 'over/under': 'totals', 'winner': 'h2h' };
+  return map[m.toLowerCase()] || m; // already an API key → pass through
+}
+
+// Extract point value from selection string e.g. "Seattle Mariners +2.5" → 2.5
+function pointFromSelection(sel) {
+  const m = (sel || '').match(/([+-]?\d+\.?\d*)$/);
+  return m ? parseFloat(m[1]) : 0;
+}
 
 function normTeam(s) {
   return (s || '').toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
@@ -1232,29 +1259,32 @@ function normTeam(s) {
 
 function teamsMatch(a, b) {
   const na = normTeam(a), nb = normTeam(b);
+  if (!na || !nb) return false;
   if (na === nb) return true;
-  // match last word (team nickname): "Kansas City Royals" vs "Royals"
   const lastA = na.split(' ').pop(), lastB = nb.split(' ').pop();
   if (lastA && lastA.length > 3 && lastA === lastB) return true;
-  // one contains the other
   if (na.includes(nb) || nb.includes(na)) return true;
   return false;
 }
 
+// Extract both team names from "Team A vs Team B" or "Team A at Team B"
+function teamsFromMatch(matchStr) {
+  const s = matchStr || '';
+  const parts = s.split(/ vs | at | @ /i);
+  return parts.length >= 2 ? { home: parts[0].trim(), away: parts[1].trim() } : { home: s, away: '' };
+}
+
 async function espnScores(sportPath, dateStr) {
   try {
-    const url = `https://site.api.espn.com/apis/site/v2/sports/${sportPath}/scoreboard?dates=${dateStr}`;
-    const res = await fetch(url);
+    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${sportPath}/scoreboard?dates=${dateStr}`);
     if (!res.ok) return [];
-    const data = await res.json();
-    return data.events || [];
+    return (await res.json()).events || [];
   } catch { return []; }
 }
 
 function determineLegResult(leg, espnEvent) {
   const comp = espnEvent.competitions?.[0];
-  if (!comp) return null;
-  if (!comp.status?.type?.completed) return null; // game not finished
+  if (!comp?.status?.type?.completed) return null;
 
   const home = comp.competitors?.find(c => c.homeAway === 'home');
   const away = comp.competitors?.find(c => c.homeAway === 'away');
@@ -1262,27 +1292,29 @@ function determineLegResult(leg, espnEvent) {
 
   const homeScore = parseFloat(home.score) || 0;
   const awayScore = parseFloat(away.score) || 0;
-  const total     = homeScore + awayScore;
-  const sel       = leg.selection || '';
-  const point     = parseFloat(leg.point) || 0;
+  const total = homeScore + awayScore;
+  const sel = leg.selection || '';
+  const market = normaliseMarket(leg.market);
+  // Point: use stored leg.point if available, else parse from selection string
+  const point = (leg.point != null && leg.point !== '') ? parseFloat(leg.point) : pointFromSelection(sel);
 
-  if (leg.market === 'totals') {
-    if (sel.toLowerCase().startsWith('over'))  return total > point  ? 'won' : total === point ? 'void' : 'lost';
-    if (sel.toLowerCase().startsWith('under')) return total < point  ? 'won' : total === point ? 'void' : 'lost';
+  if (market === 'totals') {
+    if (sel.toLowerCase().startsWith('over'))  return total > point ? 'won' : total === point ? 'void' : 'lost';
+    if (sel.toLowerCase().startsWith('under')) return total < point ? 'won' : total === point ? 'void' : 'lost';
   }
 
-  if (leg.market === 'h2h') {
-    if (homeScore === awayScore) return 'void'; // draw (rare in most sports)
-    const winnerName = homeScore > awayScore ? home.team.displayName : away.team.displayName;
-    return teamsMatch(winnerName, sel) ? 'won' : 'lost';
+  if (market === 'h2h') {
+    if (homeScore === awayScore) return 'void';
+    const winner = homeScore > awayScore ? home.team?.displayName : away.team?.displayName;
+    return teamsMatch(winner, sel) ? 'won' : 'lost';
   }
 
-  if (leg.market === 'spreads') {
-    // Figure out which side the selection is
-    const homeName = home.team.displayName;
-    const isHomeSide = teamsMatch(leg.homeTeam || '', homeName) && teamsMatch(sel, leg.homeTeam || '')
-                    || teamsMatch(sel, homeName);
-    if (isHomeSide) {
+  if (market === 'spreads') {
+    const homeName = home.team?.displayName || '';
+    // Determine if selection is the home or away team
+    const selTeam = sel.replace(/[+-]?\d+\.?\d*$/, '').trim(); // strip point value
+    const isHome = teamsMatch(selTeam, homeName);
+    if (isHome) {
       const adj = homeScore + point;
       return adj > awayScore ? 'won' : adj === awayScore ? 'void' : 'lost';
     } else {
@@ -1303,25 +1335,34 @@ async function autoCheckPendingBets() {
   let updated = 0;
 
   for (const entry of pending) {
-    // Only attempt once all legs should have finished (last start + 4h)
-    const latestStart = Math.max(...entry.legs.map(l => new Date(l.startTime || 0).getTime()));
-    if (Date.now() < latestStart + 4 * 3600 * 1000) continue;
+    // If startTime missing assume logged >4h ago and games may be done
+    const latestStart = Math.max(...entry.legs.map(l => l.startTime ? new Date(l.startTime).getTime() : 0));
+    const assumeFinished = latestStart === 0; // no startTime stored → old entry, try anyway
+    if (!assumeFinished && Date.now() < latestStart + 4 * 3600 * 1000) continue;
 
     let allResolved = true;
 
     for (const leg of entry.legs) {
       if (leg.result && leg.result !== 'pending') continue;
 
-      const paths = ESPN_MAP[leg.sportCat] || [];
-      if (!paths.length) { allResolved = false; continue; } // sport not supported
+      // Derive sportCat if missing (old entries stored only display string)
+      const sportCat = leg.sportCat || sportCatFromDisplay(leg.sport);
+      const paths = ESPN_MAP[sportCat] || [];
+      if (!paths.length) { allResolved = false; continue; }
 
-      const gameDate = new Date(leg.startTime || Date.now());
-      // Try yesterday, today and tomorrow to handle timezone differences
-      const datesToTry = [-1, 0, 1].map(d => {
-        const dt = new Date(gameDate);
+      // Build date range to try: if startTime known use it ±2 days; else try last 5 days
+      const baseDate = leg.startTime ? new Date(leg.startTime) : new Date();
+      const offsets = leg.startTime ? [-2, -1, 0, 1] : [-5, -4, -3, -2, -1, 0];
+      const datesToTry = offsets.map(d => {
+        const dt = new Date(baseDate);
         dt.setDate(dt.getDate() + d);
         return dt.toISOString().slice(0, 10).replace(/-/g, '');
       });
+
+      // Parse team names from match string as fallback
+      const parsedTeams = teamsFromMatch(leg.match);
+      const homeTeam = leg.homeTeam || parsedTeams.home;
+      const awayTeam = leg.awayTeam || parsedTeams.away;
 
       let legResult = null;
       outer:
@@ -1330,11 +1371,10 @@ async function autoCheckPendingBets() {
           const events = await espnScores(path, dateStr);
           const match = events.find(ev => {
             const name = ev.name || ev.shortName || '';
-            return teamsMatch(leg.homeTeam || '', name) || teamsMatch(leg.awayTeam || '', name)
-                || (leg.homeTeam && leg.awayTeam && name.includes(normTeam(leg.homeTeam).split(' ').pop()));
+            return teamsMatch(homeTeam, name) || teamsMatch(awayTeam, name);
           });
           if (match) {
-            legResult = determineLegResult(leg, match);
+            legResult = determineLegResult({ ...leg, homeTeam, awayTeam }, match);
             if (legResult) break outer;
           }
         }
@@ -1349,9 +1389,7 @@ async function autoCheckPendingBets() {
 
     if (allResolved) {
       const legResults = entry.legs.map(l => l.result);
-      entry.result = legResults.every(r => r === 'won') ? 'won'
-                   : legResults.some(r => r === 'void') && legResults.every(r => r === 'won' || r === 'void') ? 'won'
-                   : 'lost';
+      entry.result = legResults.every(r => r === 'won' || r === 'void') ? 'won' : 'lost';
       entry.autoChecked = true;
       updated++;
     }
