@@ -573,8 +573,9 @@ window.onload = () => {
   }
   updateRangeDisplay();
   renderHistory();
-  // Auto-check any pending bets on load
+  // Auto-check on load then every 5 minutes
   autoCheckPendingBets();
+  setInterval(autoCheckPendingBets, 5 * 60 * 1000);
 };
 
 function saveApiKey() {
@@ -1382,12 +1383,15 @@ async function autoCheckPendingBets() {
 
       if (legResult) {
         leg.result = legResult;
+        saveHistory(); // persist each leg result immediately as it's found
       } else {
         allResolved = false;
       }
     }
 
-    if (allResolved) {
+    // Settle the whole multi if every leg is now resolved
+    const resolvedLegs = entry.legs.filter(l => l.result && l.result !== 'pending');
+    if (resolvedLegs.length === entry.legs.length) {
       const legResults = entry.legs.map(l => l.result);
       entry.result = legResults.every(r => r === 'won' || r === 'void') ? 'won' : 'lost';
       entry.autoChecked = true;
