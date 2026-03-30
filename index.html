@@ -1351,9 +1351,10 @@ async function autoCheckPendingBets() {
       const paths = ESPN_MAP[sportCat] || [];
       if (!paths.length) { allResolved = false; continue; }
 
-      // Build date range to try: if startTime known use it ±2 days; else try last 5 days
+      // Build date range: if startTime known check ±1 day around it; else just today+yesterday
+      // Deliberately narrow — going back further risks matching a different completed game
       const baseDate = leg.startTime ? new Date(leg.startTime) : new Date();
-      const offsets = leg.startTime ? [-2, -1, 0, 1] : [-5, -4, -3, -2, -1, 0];
+      const offsets = leg.startTime ? [-1, 0, 1] : [-1, 0];
       const datesToTry = offsets.map(d => {
         const dt = new Date(baseDate);
         dt.setDate(dt.getDate() + d);
