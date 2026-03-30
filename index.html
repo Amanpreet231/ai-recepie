@@ -453,7 +453,13 @@
 
   <!-- Scan -->
   <div class="scan-row">
-    <button class="btn btn-scan" id="scanBtn" onclick="startScan()">⚡ Scan All Sports</button>
+    <div style="text-align:center;">
+      <button class="btn btn-scan" id="scanBtn" onclick="startScan()" title="Scan for best bets (S)">⚡ Scan All Sports</button>
+      <div class="shortcuts-hint" style="color:#444;font-size:0.7rem;text-align:center;margin-top:6px;">
+        Press <kbd style="background:#1a2a3a;border:1px solid #333;padding:1px 5px;border-radius:3px;font-size:0.7rem;">S</kbd> to scan ·
+        <kbd style="background:#1a2a3a;border:1px solid #333;padding:1px 5px;border-radius:3px;font-size:0.7rem;">1</kbd>/<kbd style="background:#1a2a3a;border:1px solid #333;padding:1px 5px;border-radius:3px;font-size:0.7rem;">2</kbd> to switch tabs
+      </div>
+    </div>
     <span class="status-text" id="statusText">Enter your API key and click Scan</span>
   </div>
   <div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
@@ -940,7 +946,10 @@ async function startScan() {
     const timeWindowH = parseInt(document.getElementById('timeWindowSelect').value);
 
     const bestMulti = buildBestMulti(allBets, targetOdds, maxLegs, timeWindowH);
-    if (bestMulti) renderBestMulti(bestMulti);
+    if (bestMulti) {
+      renderBestMulti(bestMulti);
+      document.getElementById('bestMultiCard')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
 
     populateSportFilter();
     filteredBets = [...allBets].sort((a, b) => a.odds - b.odds);
@@ -1471,6 +1480,9 @@ function setResult(id, result) {
   const entry = betHistory.find(e => e.id === id);
   if (!entry) return;
   entry.result = entry.result === result ? 'pending' : result; // toggle off
+  if (entry.result === 'won' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    fireConfetti();
+  }
   saveHistory();
   renderHistory();
 }
@@ -1690,6 +1702,9 @@ async function autoCheckPendingBets() {
       entry.result = legResults.every(r => r === 'won' || r === 'void') ? 'won' : 'lost';
       entry.autoChecked = true;
       entry._justUpdated = true;
+      if (entry.result === 'won' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        fireConfetti();
+      }
       updated++;
     }
   }
@@ -1703,6 +1718,47 @@ async function autoCheckPendingBets() {
   } else if (pending.length > 0) {
     showAlert('⏳ Pending bets checked — games may still be in progress or sport not yet supported by ESPN.', 'info');
   }
+}
+
+function fireConfetti() {
+  const canvas = document.createElement('canvas');
+  canvas.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:9999;';
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  document.body.appendChild(canvas);
+  const ctx = canvas.getContext('2d');
+  const emojis = ['🎉','💰','⚡','🏆','✨'];
+  const particles = Array.from({length: 40}, () => ({
+    x: Math.random() * canvas.width,
+    y: -20,
+    vy: 2 + Math.random() * 3,
+    vx: (Math.random() - 0.5) * 2,
+    emoji: emojis[Math.floor(Math.random() * emojis.length)],
+    size: 16 + Math.random() * 14,
+    rot: Math.random() * 360,
+    rotV: (Math.random() - 0.5) * 8,
+  }));
+  let frame = 0;
+  const MAX = 90; // ~1.5s at 60fps
+  function tick() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (const p of particles) {
+      p.y += p.vy;
+      p.x += p.vx;
+      p.rot += p.rotV;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot * Math.PI / 180);
+      ctx.font = `${p.size}px serif`;
+      ctx.globalAlpha = Math.max(0, 1 - frame / MAX);
+      ctx.fillText(p.emoji, 0, 0);
+      ctx.restore();
+    }
+    frame++;
+    if (frame < MAX) requestAnimationFrame(tick);
+    else canvas.remove();
+  }
+  requestAnimationFrame(tick);
 }
 
 function renderHistory() {
@@ -1870,6 +1926,39 @@ function showAlert(msg, type='info') {
   if (type==='success') setTimeout(hideAlert, 4000);
 }
 function hideAlert() { document.getElementById('alertBox').className = 'alert'; }
+
+// ─── Keyboard Shortcuts ────────────────────────────────────────────────────────
+document.addEventListener('keydown', function(e) {
+  // Don't fire when typing in an input
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+
+  switch(e.key) {
+    case 's':
+    case 'S':
+      // Trigger scan
+      if (!e.ctrlKey && !e.metaKey) {
+        const btn = document.getElementById('scanBtn');
+        if (btn && !btn.classList.contains('scanning')) btn.click();
+      }
+      break;
+    case '1':
+      // Switch to Scanner tab (if tabs exist)
+      document.querySelector('[data-tab="scanner"]')?.click() ||
+      document.querySelectorAll('.tab-btn')[0]?.click();
+      break;
+    case '2':
+      // Switch to History tab
+      document.querySelector('[data-tab="history"]')?.click() ||
+      document.querySelectorAll('.tab-btn')[1]?.click();
+      break;
+    case 'Escape':
+      // Close any open modal
+      document.querySelectorAll('.modal, [id$="Modal"]').forEach(m => {
+        if (m.style.display !== 'none') m.style.display = 'none';
+      });
+      break;
+  }
+});
 </script>
 </body>
 </html>
