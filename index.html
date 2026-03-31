@@ -203,6 +203,7 @@
 
   .empty-state { text-align: center; padding: 60px 20px; color: var(--text2); }
   .empty-state .icon { font-size: 48px; margin-bottom: 12px; opacity: 0.4; }
+  .kelly-row { color: #ffd740; font-size: 0.85rem; margin-top: 6px; }
 
   footer { text-align: center; padding: 20px; color: var(--text3); font-size: 11px; border-top: 1px solid var(--border); margin-top: 20px; }
   footer a { color: var(--text2); }
@@ -558,6 +559,12 @@
         <option value="americanfootball">🏈 NFL</option>
       </select>
     </div>
+    <div class="control-card">
+      <label>💼 Bankroll</label>
+      <input id="bankrollInput" type="number" min="10" value="100" step="10"
+        style="width:100%"
+        oninput="localStorage.setItem('bankroll', this.value); typeof renderBestMulti === 'function' && document.getElementById('kellyRow') && updateKellyDisplay()">
+    </div>
   </div>
 
   <!-- Scan -->
@@ -602,6 +609,7 @@
         <span id="profitDisplay" style="color:#ffd740;font-weight:bold;">$0.00</span>
       </div>
       <div class="return-amounts" id="returnAmounts"></div>
+      <div class="kelly-row" id="kellyRow"></div>
       <button class="btn btn-primary" style="margin-left:auto" onclick="logCurrentMulti()">📋 Log this Multi</button>
       <button id="shareBtn" onclick="shareMulti()" style="background:#1a2a3a;border:1px solid #00e676;color:#00e676;padding:8px 18px;border-radius:6px;cursor:pointer;font-size:0.85rem;">📋 Copy Multi</button>
     </div>
@@ -848,6 +856,12 @@ window.onload = () => {
   if (apiKey) {
     document.getElementById('apiKeyInput').value = apiKey;
     showAlert('API key loaded. Ready to scan!', 'success');
+  }
+  // Restore bankroll input from localStorage
+  const savedBankroll = localStorage.getItem('bankroll');
+  if (savedBankroll) {
+    const bankrollInput = document.getElementById('bankrollInput');
+    if (bankrollInput) bankrollInput.value = savedBankroll;
   }
   updateRangeDisplay();
   updateCreditDisplay();
@@ -1343,6 +1357,8 @@ function buildNLegMulti(bets, targetOdds, n) {
       for (const cand of bets) {
         if (cand.matchId === legs[i].matchId) continue;
         if (legs.some((l, j) => j !== i && l.matchId === cand.matchId)) continue;
+        // No duplicate matches (correlated legs guard)
+        if (legs.some((l, j) => j !== i && l.match === cand.match)) continue;
         const newOdds = (odds / legs[i].odds) * cand.odds;
         const allValue = cand.isValue && legs.every((l, j) => j === i || l.isValue);
         const newScore = Math.abs(newOdds - targetOdds) - (allValue ? 0.01 : 0);
@@ -1358,6 +1374,38 @@ function buildNLegMulti(bets, targetOdds, n) {
   }
 
   return { legs, combinedOdds: odds, n: legs.length };
+}
+
+// ─── Kelly Criterion ──────────────────────────────────────────────────────────
+function kellyStake(combinedOdds, winProbability, bankroll) {
+  // Kelly formula: f* = (bp - q) / b
+  // b = net odds (combinedOdds - 1), p = win probability, q = 1 - p
+  const b = combinedOdds - 1;
+  const p = winProbability;
+  const q = 1 - p;
+  const kelly = (b * p - q) / b;
+  // Use quarter-Kelly for safety
+  const quarterKelly = Math.max(0, kelly * 0.25);
+  return parseFloat((quarterKelly * bankroll).toFixed(2));
+}
+
+function multiWinProb(legs) {
+  return legs.reduce((p, leg) => {
+    const prob = leg.fairOdds ? 1 / leg.fairOdds : 1 / leg.odds;
+    return p * prob;
+  }, 1);
+}
+
+function updateKellyDisplay() {
+  const kellyRow = document.getElementById('kellyRow');
+  if (!kellyRow) return;
+  const oddsText = document.getElementById('multiOdds').textContent;
+  const combinedOdds = parseFloat(oddsText);
+  if (!combinedOdds || isNaN(combinedOdds) || !window._currentMultiLegsRaw) return;
+  const bankroll = parseFloat(document.getElementById('bankrollInput')?.value || localStorage.getItem('bankroll') || '100');
+  const winProb = multiWinProb(window._currentMultiLegsRaw);
+  const kelly = kellyStake(combinedOdds, winProb, bankroll);
+  kellyRow.innerHTML = `📐 Kelly stake: $${kelly} <span style="color:#555">(on $${bankroll} bankroll)</span>`;
 }
 
 // ─── Render Multi ─────────────────────────────────────────────────────────────
@@ -1442,8 +1490,12 @@ function renderBestMulti(multi) {
     result:    'pending',
   }));
 
+  // Store raw legs for Kelly calculation (needs fairOdds)
+  window._currentMultiLegsRaw = multi.legs;
+
   updateReturns();
   updateStakeCalc();
+  updateKellyDisplay();
 }
 
 function updateReturns() {
