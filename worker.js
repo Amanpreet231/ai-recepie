@@ -36,7 +36,7 @@ const ALLOWED_ORIGINS = [
   'http://localhost:3000',
   'http://127.0.0.1:3000',
   'https://stake-multi-builder.pages.dev',
-  'https://stakemulti.pages.dev',
+  'https://stake-multi-builder.amanpreet6.workers.dev',
 ];
 
 const ODDS_API_BASE = 'https://api.the-odds-api.com/v4';
