@@ -30,12 +30,13 @@
  * ─────────────────────────────────────────────────────
  */
 
-// Allowed origins — add your live domain here when you deploy
+// Allowed origins — covers Pages deployment, blob URLs, localhost, and any Cloudflare subdomain
 const ALLOWED_ORIGINS = [
   'https://3000-i1fj391i69n5jy1rjjlce-82b888ba.sandbox.novita.ai',
   'http://localhost:3000',
   'http://127.0.0.1:3000',
-  // Add your production domain here e.g. 'https://stakemulti.com'
+  'https://stake-multi-builder.pages.dev',
+  'https://stakemulti.pages.dev',
 ];
 
 const ODDS_API_BASE = 'https://api.the-odds-api.com/v4';
@@ -55,9 +56,14 @@ function computeSmartTTL(events) {
 }
 
 function corsHeaders(origin) {
-  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  // Allow: exact matches, any *.pages.dev subdomain, blob: URLs (no origin header), localhost
+  const isAllowed = !origin // blob:// or file:// sends no Origin
+    || ALLOWED_ORIGINS.includes(origin)
+    || /^https:\/\/[a-z0-9-]+\.pages\.dev$/.test(origin)
+    || /^https?:\/\/localhost(:\d+)?$/.test(origin)
+    || /^https?:\/\/127\.0\.0\.1(:\d+)?$/.test(origin);
   return {
-    'Access-Control-Allow-Origin': allowed,
+    'Access-Control-Allow-Origin': isAllowed ? (origin || '*') : 'null',
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
   };
