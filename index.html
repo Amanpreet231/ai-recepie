@@ -203,6 +203,7 @@
 
   .empty-state { text-align: center; padding: 60px 20px; color: var(--text2); }
   .empty-state .icon { font-size: 48px; margin-bottom: 12px; opacity: 0.4; }
+  .kelly-row { color: #ffd740; font-size: 0.85rem; margin-top: 6px; }
 
   footer { text-align: center; padding: 20px; color: var(--text3); font-size: 11px; border-top: 1px solid var(--border); margin-top: 20px; }
   footer a { color: var(--text2); }
@@ -359,7 +360,39 @@
 
   /* Section dividers */
   .section + .section { border-top: 1px solid #111; margin-top: 24px; padding-top: 24px; }
+
+  /* Onboarding step dots */
+  .step-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #1a2a3a; border: 1px solid #333; transition: all 0.2s;
+  }
+  .step-dot.active { background: #00e676; border-color: #00e676; width: 24px; border-radius: 4px; }
 </style>
+<meta name="theme-color" content="#00e676">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MultiBuilder">
+<meta name="mobile-web-app-capable" content="yes">
+<link id="manifestLink" rel="manifest">
+<script>
+(function() {
+  const manifest = {
+    name: "Stake Multi Builder",
+    short_name: "MultiBuilder",
+    description: "Build winning multi bets for Stake.com",
+    start_url: "./",
+    display: "standalone",
+    background_color: "#080f1a",
+    theme_color: "#00e676",
+    orientation: "portrait-primary",
+    icons: [
+      { src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23080f1a'/><text y='.9em' font-size='80' x='10'>⚡</text></svg>", sizes: "any", type: "image/svg+xml", purpose: "any maskable" }
+    ]
+  };
+  const blob = new Blob([JSON.stringify(manifest)], {type: 'application/manifest+json'});
+  document.getElementById('manifestLink').href = URL.createObjectURL(blob);
+})();
+</script>
 </head>
 <body>
 
@@ -371,6 +404,9 @@
   <div class="header-badges">
     <div class="badge live" id="liveBadge" style="display:none">● LIVE</div>
     <div class="badge" id="requestsBadge" style="display:none">API: <strong id="requestsLeft">–</strong> left</div>
+    <button id="installBtn" onclick="installApp()" style="display:none;background:#00e676;color:#000;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:0.8rem;font-weight:700;align-items:center;gap:6px;">
+      📲 Install App
+    </button>
     <div id="creditBar" style="margin-top:6px;min-width:120px;">
       <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
         <span style="color:#888;font-size:0.75rem;">API Credits</span>
@@ -382,6 +418,60 @@
     </div>
   </div>
 </header>
+
+<!-- Onboarding Modal -->
+<div id="onboardingModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:10000;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:#0d1b2a;border:1px solid #00e676;border-radius:16px;padding:32px;max-width:480px;width:100%;position:relative;">
+    <!-- Step indicator -->
+    <div id="onboardSteps" style="display:flex;gap:8px;margin-bottom:24px;">
+      <div class="step-dot active" data-step="1"></div>
+      <div class="step-dot" data-step="2"></div>
+      <div class="step-dot" data-step="3"></div>
+    </div>
+
+    <!-- Step 1: Welcome -->
+    <div id="onboard1">
+      <div style="font-size:3rem;text-align:center;margin-bottom:12px;">⚡</div>
+      <h2 style="color:#00e676;text-align:center;margin:0 0 12px;font-size:1.4rem;">Welcome to Stake Multi Builder</h2>
+      <p style="color:#aaa;text-align:center;line-height:1.6;margin:0 0 24px;">Scan live sports odds, find value bets, and build the perfect multi automatically.</p>
+      <button onclick="onboardNext(2)" style="width:100%;background:#00e676;color:#000;border:none;padding:14px;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;">Get Started →</button>
+    </div>
+
+    <!-- Step 2: API Key -->
+    <div id="onboard2" style="display:none;">
+      <h2 style="color:#00e676;margin:0 0 8px;">Get your free API key</h2>
+      <p style="color:#aaa;line-height:1.6;margin:0 0 16px;font-size:0.9rem;">The app uses The Odds API to fetch live sports data. Free tier gives you <strong style="color:#fff;">500 credits/month</strong> — enough for ~60 scans.</p>
+      <ol style="color:#aaa;font-size:0.9rem;line-height:2;padding-left:20px;margin:0 0 20px;">
+        <li>Go to <strong style="color:#00e676;">the-odds-api.com</strong></li>
+        <li>Click "Get API Key" (free)</li>
+        <li>Copy your key and paste it below</li>
+      </ol>
+      <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <input id="onboardApiKey" type="text" placeholder="Paste your API key here..."
+          style="flex:1;background:#1a2a3a;border:1px solid #333;color:#fff;padding:10px 12px;border-radius:6px;font-size:0.9rem;font-family:monospace;">
+        <button onclick="onboardSaveKey()" style="background:#00e676;color:#000;border:none;padding:10px 16px;border-radius:6px;font-weight:700;cursor:pointer;white-space:nowrap;">Save</button>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="onboardNext(1)" style="flex:1;background:#1a2a3a;color:#888;border:1px solid #333;padding:12px;border-radius:8px;cursor:pointer;">← Back</button>
+        <button onclick="onboardNext(3)" id="onboardSkip2" style="flex:1;background:#1a2a3a;color:#555;border:1px solid #222;padding:12px;border-radius:8px;cursor:pointer;font-size:0.85rem;">Skip for now</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Ready -->
+    <div id="onboard3" style="display:none;">
+      <div style="font-size:3rem;text-align:center;margin-bottom:12px;">🎯</div>
+      <h2 style="color:#00e676;text-align:center;margin:0 0 12px;">You're all set!</h2>
+      <div style="background:#1a2a3a;border-radius:8px;padding:16px;margin-bottom:20px;">
+        <p style="color:#aaa;margin:0 0 8px;font-size:0.88rem;"><strong style="color:#fff;">Quick tips:</strong></p>
+        <p style="color:#aaa;font-size:0.85rem;margin:4px 0;">⚡ Press <kbd style="background:#0d1b2a;border:1px solid #333;padding:1px 6px;border-radius:3px;">S</kbd> to scan for best bets</p>
+        <p style="color:#aaa;font-size:0.85rem;margin:4px 0;">★ Gold star = value bet (fair odds detected)</p>
+        <p style="color:#aaa;font-size:0.85rem;margin:4px 0;">📋 Copy Multi shares your selection instantly</p>
+        <p style="color:#aaa;font-size:0.85rem;margin:4px 0;">🎉 Bet results auto-check every 5 minutes</p>
+      </div>
+      <button onclick="closeOnboarding()" style="width:100%;background:#00e676;color:#000;border:none;padding:14px;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;">Start Scanning →</button>
+    </div>
+  </div>
+</div>
 
 <div class="container">
 
@@ -469,6 +559,12 @@
         <option value="americanfootball">🏈 NFL</option>
       </select>
     </div>
+    <div class="control-card">
+      <label>💼 Bankroll</label>
+      <input id="bankrollInput" type="number" min="10" value="100" step="10"
+        style="width:100%"
+        oninput="localStorage.setItem('bankroll', this.value); typeof renderBestMulti === 'function' && document.getElementById('kellyRow') && updateKellyDisplay()">
+    </div>
   </div>
 
   <!-- Scan -->
@@ -513,6 +609,7 @@
         <span id="profitDisplay" style="color:#ffd740;font-weight:bold;">$0.00</span>
       </div>
       <div class="return-amounts" id="returnAmounts"></div>
+      <div class="kelly-row" id="kellyRow"></div>
       <button class="btn btn-primary" style="margin-left:auto" onclick="logCurrentMulti()">📋 Log this Multi</button>
       <button id="shareBtn" onclick="shareMulti()" style="background:#1a2a3a;border:1px solid #00e676;color:#00e676;padding:8px 18px;border-radius:6px;cursor:pointer;font-size:0.85rem;">📋 Copy Multi</button>
     </div>
@@ -545,6 +642,7 @@
       <button class="filter-btn" data-market="h2h" onclick="setMarketFilter(this)">Match Winner</button>
       <button class="filter-btn" data-market="totals" onclick="setMarketFilter(this)">Over/Under</button>
       <button class="filter-btn" data-market="spreads" onclick="setMarketFilter(this)">Spreads</button>
+      <button class="filter-btn move-filter-btn" onclick="setMoveFilter(this)">🔥 Moved</button>
       <select id="sportFilterTable" onchange="filterBets()" style="font-size:12px;padding:5px 8px">
         <option value="all">All Sports</option>
       </select>
@@ -664,7 +762,26 @@ let currentMultiLegs = []; // full structured data for the current best multi
 let currentSortCol = 'prob';
 let currentSortDir = 'desc';
 let marketFilter = 'all';
+let moveFilter = false;
 let apiKey = localStorage.getItem('oddsApiKey') || '';
+
+// ─── Odds snapshot helpers ─────────────────────────────────────────────────────
+function saveOddsSnapshot() {
+  const snapshot = {};
+  for (const bet of allBets) {
+    const key = `${bet.match}|${bet.selection}|${bet.market}`;
+    snapshot[key] = bet.odds;
+  }
+  sessionStorage.setItem('oddsSnapshot', JSON.stringify(snapshot));
+}
+
+function getPrevOdds(bet) {
+  try {
+    const snap = JSON.parse(sessionStorage.getItem('oddsSnapshot') || '{}');
+    const key = `${bet.match}|${bet.selection}|${bet.market}`;
+    return snap[key] || null;
+  } catch { return null; }
+}
 let scanning = false;
 
 // ─── Sport helpers ─────────────────────────────────────────────────────────────
@@ -720,16 +837,58 @@ function marketClass(market) {
 }
 
 // ─── Init ──────────────────────────────────────────────────────────────────────
+function onboardNext(step) {
+  [1,2,3].forEach(n => {
+    document.getElementById('onboard' + n).style.display = n === step ? 'block' : 'none';
+  });
+  document.querySelectorAll('.step-dot').forEach((d, i) => {
+    d.classList.toggle('active', i + 1 === step);
+  });
+}
+
+function onboardSaveKey() {
+  const key = document.getElementById('onboardApiKey').value.trim();
+  if (!key || key.length < 20) {
+    document.getElementById('onboardApiKey').style.borderColor = '#ef5350';
+    return;
+  }
+  const existingInput = document.getElementById('apiKeyInput');
+  if (existingInput) { existingInput.value = key; }
+  if (typeof saveApiKey === 'function') saveApiKey();
+  else localStorage.setItem('oddsApiKey', key);
+  onboardNext(3);
+}
+
+function closeOnboarding() {
+  document.getElementById('onboardingModal').style.display = 'none';
+  localStorage.setItem('onboardingDone', '1');
+}
+
+function checkOnboarding() {
+  const done = localStorage.getItem('onboardingDone');
+  const hasKey = localStorage.getItem('oddsApiKey') || localStorage.getItem('apiKey');
+  if (!done && !hasKey) {
+    document.getElementById('onboardingModal').style.display = 'flex';
+  }
+}
+
 window.onload = () => {
   if (apiKey) {
     document.getElementById('apiKeyInput').value = apiKey;
     showAlert('API key loaded. Ready to scan!', 'success');
+  }
+  // Restore bankroll input from localStorage
+  const savedBankroll = localStorage.getItem('bankroll');
+  if (savedBankroll) {
+    const bankrollInput = document.getElementById('bankrollInput');
+    if (bankrollInput) bankrollInput.value = savedBankroll;
   }
   updateRangeDisplay();
   updateCreditDisplay();
   renderHistory();
   autoCheckPendingBets();
   setInterval(autoCheckPendingBets, 5 * 60 * 1000);
+  checkOnboarding();
 };
 
 function saveApiKey() {
@@ -944,6 +1103,12 @@ async function startScan() {
   const estimatedCredits = scanMode === 'smart' ? '~8 credits' : '~86 credits';
   setStatus(`Starting scan (${estimatedCredits})...`, true);
 
+  // Capture previous odds snapshot before overwriting allBets
+  const oldSnapshot = {};
+  try {
+    Object.assign(oldSnapshot, JSON.parse(sessionStorage.getItem('oddsSnapshot') || '{}'));
+  } catch {}
+
   lastScanTime = Date.now();
   scanning = true;
   allBets = []; filteredBets = []; customLegs = [];
@@ -1023,6 +1188,18 @@ async function startScan() {
       document.getElementById('bestMultiCard')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
+    // Annotate bets with odds movement vs previous snapshot
+    for (const bet of allBets) {
+      const key = `${bet.match}|${bet.selection}|${bet.market}`;
+      const prev = oldSnapshot[key];
+      if (prev && prev !== bet.odds) {
+        bet.oddsMove = bet.odds > prev ? 'up' : 'down';
+        bet.oddsPrev = prev;
+      }
+    }
+    // Save new snapshot for next scan
+    saveOddsSnapshot();
+
     populateSportFilter();
     filteredBets = [...allBets].sort((a, b) => a.odds - b.odds);
     renderTable();
@@ -1032,6 +1209,13 @@ async function startScan() {
     if (fresh.length > 0) logCreditUsage(fresh.length);
     const ttlNote = fresh.length > 0 ? `Cache valid up to 6h for far-future games.` : `All from cache — 0 credits used.`;
     showAlert(`✅ Found ${allBets.length} bets. Used ${fresh.length} credit(s) — ${cached.length} from cache 🆓. ${ttlNote}`, 'success');
+    // Show odds movement summary if any odds moved
+    const moved = allBets.filter(b => b.oddsMove);
+    const up = moved.filter(b => b.oddsMove === 'up').length;
+    const dn = moved.filter(b => b.oddsMove === 'down').length;
+    if (moved.length) {
+      showStatus(`📊 Odds movement: ${up} ▲ shortened, ${dn} ▼ drifted`, 'info');
+    }
     // Auto-check any pending logged bets after each scan
     autoCheckPendingBets();
 
@@ -1218,6 +1402,8 @@ function buildNLegMulti(bets, targetOdds, n) {
       for (const cand of bets) {
         if (cand.matchId === legs[i].matchId) continue;
         if (legs.some((l, j) => j !== i && l.matchId === cand.matchId)) continue;
+        // No duplicate matches (correlated legs guard)
+        if (legs.some((l, j) => j !== i && l.match === cand.match)) continue;
         const newOdds = (odds / legs[i].odds) * cand.odds;
         const allValue = cand.isValue && legs.every((l, j) => j === i || l.isValue);
         const newScore = Math.abs(newOdds - targetOdds) - (allValue ? 0.01 : 0);
@@ -1233,6 +1419,38 @@ function buildNLegMulti(bets, targetOdds, n) {
   }
 
   return { legs, combinedOdds: odds, n: legs.length };
+}
+
+// ─── Kelly Criterion ──────────────────────────────────────────────────────────
+function kellyStake(combinedOdds, winProbability, bankroll) {
+  // Kelly formula: f* = (bp - q) / b
+  // b = net odds (combinedOdds - 1), p = win probability, q = 1 - p
+  const b = combinedOdds - 1;
+  const p = winProbability;
+  const q = 1 - p;
+  const kelly = (b * p - q) / b;
+  // Use quarter-Kelly for safety
+  const quarterKelly = Math.max(0, kelly * 0.25);
+  return parseFloat((quarterKelly * bankroll).toFixed(2));
+}
+
+function multiWinProb(legs) {
+  return legs.reduce((p, leg) => {
+    const prob = leg.fairOdds ? 1 / leg.fairOdds : 1 / leg.odds;
+    return p * prob;
+  }, 1);
+}
+
+function updateKellyDisplay() {
+  const kellyRow = document.getElementById('kellyRow');
+  if (!kellyRow) return;
+  const oddsText = document.getElementById('multiOdds').textContent;
+  const combinedOdds = parseFloat(oddsText);
+  if (!combinedOdds || isNaN(combinedOdds) || !window._currentMultiLegsRaw) return;
+  const bankroll = parseFloat(document.getElementById('bankrollInput')?.value || localStorage.getItem('bankroll') || '100');
+  const winProb = multiWinProb(window._currentMultiLegsRaw);
+  const kelly = kellyStake(combinedOdds, winProb, bankroll);
+  kellyRow.innerHTML = `📐 Kelly stake: $${kelly} <span style="color:#555">(on $${bankroll} bankroll)</span>`;
 }
 
 // ─── Render Multi ─────────────────────────────────────────────────────────────
@@ -1317,8 +1535,12 @@ function renderBestMulti(multi) {
     result:    'pending',
   }));
 
+  // Store raw legs for Kelly calculation (needs fairOdds)
+  window._currentMultiLegsRaw = multi.legs;
+
   updateReturns();
   updateStakeCalc();
+  updateKellyDisplay();
 }
 
 function updateReturns() {
@@ -1356,7 +1578,10 @@ function renderTable() {
   // 'match' = leave in current sortFilteredBets order
   const cd = document.getElementById('betCountDisplay');
   if (cd) cd.textContent = `Showing ${Math.min(displayBets.length, 500)} of ${allBets.length} bets`;
-  body.innerHTML = displayBets.slice(0, 500).map(bet => {
+  body.innerHTML = displayBets.filter(bet => {
+    if (moveFilter && !bet.oddsMove) return false;
+    return true;
+  }).slice(0, 500).map(bet => {
     const prob = bet.impliedProb * 100;
     const oddsClass = bet.odds < 1.4 ? 'odds-hot' : bet.odds < 1.7 ? 'odds-warm' : 'odds-cool';
     const mktClass = marketClass(bet.market);
@@ -1370,7 +1595,7 @@ function renderTable() {
       <td>${bet.match}</td>
       <td><span class="market-pill ${mktClass}">${getMarketLabel(bet.market)}</span></td>
       <td><strong>${bet.selection}</strong><br><span style="font-size:11px;color:var(--text3)">${bet.betDescription}</span></td>
-      <td class="odds-cell ${oddsClass}">${bet.odds.toFixed(2)}${bet.isValue ? `<span class="value-badge" title="Fair odds: ${bet.fairOdds} | Vig: ${bet.vigPct}%">★</span>` : ''}</td>
+      <td class="odds-cell ${oddsClass}">${bet.odds.toFixed(2)}${bet.isValue ? `<span class="value-badge" title="Fair odds: ${bet.fairOdds} | Vig: ${bet.vigPct}%">★</span>` : ''}${bet.oddsMove === 'up' ? `<span title="Was ${bet.oddsPrev}" style="color:#00e676;font-size:10px;margin-left:3px;">▲</span>` : bet.oddsMove === 'down' ? `<span title="Was ${bet.oddsPrev}" style="color:#ef5350;font-size:10px;margin-left:3px;">▼</span>` : ''}</td>
       <td class="prob-cell"><span>${prob.toFixed(1)}%</span><div class="prob-bar"><div class="prob-fill" style="width:${Math.min(prob,100)}%"></div></div></td>
       <td>${timeStr}</td>
       <td class="td-actions">
@@ -1410,9 +1635,15 @@ function filterBets() {
 
 function setMarketFilter(btn) {
   marketFilter = btn.dataset.market;
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.filter-btn:not(.move-filter-btn)').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   filterBets();
+}
+
+function setMoveFilter(btn) {
+  moveFilter = !moveFilter;
+  btn.classList.toggle('active', moveFilter);
+  renderTable();
 }
 
 function sortBy(col) {
@@ -2091,6 +2322,60 @@ document.addEventListener('keydown', function(e) {
       break;
   }
 });
+
+// PWA Service Worker
+if ('serviceWorker' in navigator) {
+  const swCode = `
+const CACHE = 'smb-v1';
+const SHELL = [location.href];
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
+});
+self.addEventListener('activate', e => {
+  e.waitUntil(clients.claim());
+});
+self.addEventListener('fetch', e => {
+  // Network-first for API calls, cache-first for the app shell
+  if (e.request.url.includes('api.the-odds-api.com') || e.request.url.includes('workers.dev') || e.request.url.includes('espn.com')) {
+    e.respondWith(fetch(e.request).catch(() => new Response('{}', {headers:{'Content-Type':'application/json'}})));
+    return;
+  }
+  e.respondWith(
+    caches.match(e.request).then(cached => cached || fetch(e.request).then(resp => {
+      const clone = resp.clone();
+      caches.open(CACHE).then(c => c.put(e.request, clone));
+      return resp;
+    }))
+  );
+});
+  `;
+  const swBlob = new Blob([swCode], {type: 'application/javascript'});
+  const swUrl = URL.createObjectURL(swBlob);
+  navigator.serviceWorker.register(swUrl, {scope: './'})
+    .then(() => console.log('[PWA] Service worker registered'))
+    .catch(e => console.warn('[PWA] SW registration failed:', e));
+}
+
+// PWA Install prompt
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  const btn = document.getElementById('installBtn');
+  if (btn) btn.style.display = 'inline-flex';
+});
+window.addEventListener('appinstalled', () => {
+  const btn = document.getElementById('installBtn');
+  if (btn) btn.style.display = 'none';
+  deferredInstallPrompt = null;
+});
+function installApp() {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  deferredInstallPrompt.userChoice.then(choice => {
+    deferredInstallPrompt = null;
+  });
+}
 </script>
 </body>
 </html>
