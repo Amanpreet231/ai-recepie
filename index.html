@@ -1030,8 +1030,8 @@ const SMART_MAX_PER_CAT = { soccer: 3, basketball: 2, cricket: 2, aussierules: 1
 // ─── API ──────────────────────────────────────────────────────────────────────
 // Phase B: set USE_PROXY = true and fill PROXY_URL once Cloudflare Worker is deployed
 // That makes ALL users share one cache — free tier serves thousands of users
-const USE_PROXY  = false;
-const PROXY_URL  = 'https://stake-multi-proxy.YOUR_NAME.workers.dev'; // replace after deploy
+const USE_PROXY  = true;
+const PROXY_URL  = 'https://stake-multi-proxy.amanpreet6.workers.dev';
 const API = USE_PROXY ? PROXY_URL : 'https://api.the-odds-api.com/v4';
 
 async function apiFetch(url) {
