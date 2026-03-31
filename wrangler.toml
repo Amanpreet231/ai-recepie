@@ -6,4 +6,4 @@ compatibility_date = "2024-01-01"
 # paste the id below
 [[kv_namespaces]]
 binding = "ODDS_CACHE"
-id = "PASTE_YOUR_KV_NAMESPACE_ID_HERE"
+id = "e244bca297b14e1a86c258cc390923f5"
