@@ -485,6 +485,19 @@
       <input type="password" id="apiKeyInput" class="api-key-input" placeholder="Paste your API key here..." autocomplete="off">
       <button class="btn btn-primary" onclick="saveApiKey()">Save Key</button>
     </div>
+    <div class="api-input-row" style="margin-top:10px;">
+      <input id="alertEmail" type="email" placeholder="Email for bet alerts (optional)"
+        style="flex:1;background:#0d1b2a;border:1px solid #333;color:#fff;padding:8px 12px;border-radius:6px;font-size:0.9rem;min-width:0;">
+      <button onclick="saveAlertEmail()" style="background:#1a2a3a;border:1px solid #333;color:#888;padding:8px 14px;border-radius:6px;cursor:pointer;white-space:nowrap;font-size:0.85rem;">Save</button>
+    </div>
+    <div style="color:#555;font-size:0.75rem;margin-top:4px;">Get emailed when your multi wins or loses (requires email alerts worker)</div>
+    <div id="alertsWorkerRow" style="margin-top:6px;display:none;">
+      <input id="alertsWorkerUrl" type="url" placeholder="Email alerts worker URL (optional)"
+        style="width:100%;background:#0d1b2a;border:1px solid #222;color:#555;padding:6px 10px;border-radius:6px;font-size:0.78rem;"
+        oninput="localStorage.setItem('emailAlertsUrl', this.value)">
+    </div>
+    <div onclick="document.getElementById('alertsWorkerRow').style.display = document.getElementById('alertsWorkerRow').style.display==='none'?'block':'none'"
+      style="color:#333;font-size:0.72rem;cursor:pointer;margin-top:3px;">⚙ Advanced</div>
   </div>
 
   <!-- Alert -->
@@ -883,6 +896,11 @@ window.onload = () => {
     const bankrollInput = document.getElementById('bankrollInput');
     if (bankrollInput) bankrollInput.value = savedBankroll;
   }
+  const savedEmail = localStorage.getItem('alertEmail');
+  if (savedEmail) {
+    const el = document.getElementById('alertEmail');
+    if (el) el.value = savedEmail;
+  }
   updateRangeDisplay();
   updateCreditDisplay();
   renderHistory();
@@ -897,6 +915,38 @@ function saveApiKey() {
   apiKey = val;
   localStorage.setItem('oddsApiKey', val);
   showAlert('API key saved!', 'success');
+}
+
+function saveAlertEmail() {
+  const email = document.getElementById('alertEmail').value.trim();
+  if (!email || !email.includes('@')) {
+    showStatus('Enter a valid email address', 'warn');
+    return;
+  }
+  localStorage.setItem('alertEmail', email);
+  showStatus('Email saved — you\'ll be notified when bets settle', 'success');
+}
+
+async function sendResultAlert(entry) {
+  const email = localStorage.getItem('alertEmail');
+  const EMAIL_ALERTS_URL = localStorage.getItem('emailAlertsUrl') || '';
+  if (!email || !EMAIL_ALERTS_URL) return;
+  try {
+    await fetch(EMAIL_ALERTS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email,
+        result: entry.result,
+        legs: entry.legs,
+        combinedOdds: entry.combinedOdds,
+        date: entry.date,
+        stake: parseFloat(document.getElementById('stakeAmount')?.value || document.getElementById('stakeInput')?.value || 10),
+      }),
+    });
+  } catch(e) {
+    console.warn('Email alert failed:', e.message);
+  }
 }
 
 function updateRangeDisplay() {
@@ -2064,6 +2114,7 @@ async function autoCheckPendingBets() {
       const legResults = entry.legs.map(l => l.result);
       entry.result = legResults.every(r => r === 'won' || r === 'void') ? 'won' : 'lost';
       entry.autoChecked = true;
+      sendResultAlert(entry);
       entry._justUpdated = true;
       if (entry.result === 'won' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
         fireConfetti();

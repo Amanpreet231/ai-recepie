@@ -79,6 +79,7 @@
 
 <nav>
   <div class="logo">⚡ Stake Multi Builder</div>
+  <a href="#waitlist" style="color:#888;font-size:0.85rem;margin-right:12px;">Pro waitlist</a>
   <a href="https://stake-multi-builder.pages.dev" class="nav-cta">Open App →</a>
 </nav>
 
@@ -161,9 +162,28 @@
         <li>Priority support</li>
         <li>Early access to new features</li>
       </ul>
-      <button class="plan-btn pro" onclick="alert('Stripe coming soon! Join the waitlist at the link below.')">Get Pro →</button>
+      <button class="plan-btn pro" onclick="document.getElementById('waitlist').scrollIntoView({behavior:'smooth'})">Get Pro →</button>
     </div>
   </div>
+</section>
+
+<section id="waitlist" style="padding:60px 24px;max-width:520px;margin:0 auto;text-align:center;border-top:1px solid #111;">
+  <div style="font-size:2rem;margin-bottom:12px;">🚀</div>
+  <h2 style="font-size:1.6rem;margin-bottom:8px;">Join the Pro waitlist</h2>
+  <p style="color:#888;font-size:0.95rem;margin-bottom:28px;">Be first to know when Pro launches. Early members get 3 months free.</p>
+  <div id="waitlistForm" style="display:flex;gap:8px;max-width:420px;margin:0 auto;">
+    <input id="waitlistEmail" type="email" placeholder="your@email.com"
+      style="flex:1;background:#0d1b2a;border:1px solid #333;color:#fff;padding:12px 16px;border-radius:8px;font-size:0.95rem;min-width:0;"
+      onkeydown="if(event.key==='Enter')joinWaitlist()">
+    <button onclick="joinWaitlist()"
+      style="background:#00e676;color:#000;border:none;padding:12px 20px;border-radius:8px;font-weight:700;cursor:pointer;white-space:nowrap;">
+      Notify Me
+    </button>
+  </div>
+  <div id="waitlistSuccess" style="display:none;color:#00e676;margin-top:16px;font-size:0.95rem;">
+    ✅ You're on the list! We'll email you when Pro launches.
+  </div>
+  <p style="color:#444;font-size:0.75rem;margin-top:16px;">No spam. Unsubscribe anytime.</p>
 </section>
 
 <section class="social">
@@ -180,6 +200,23 @@
   <p>⚡ Stake Multi Builder — Built for Stake.com users. Bet responsibly. 18+ only.</p>
   <p style="margin-top:8px;"><a href="https://stake-multi-builder.pages.dev" style="color:#00e676;">Open App</a></p>
 </footer>
+
+<script>
+function joinWaitlist() {
+  const email = document.getElementById('waitlistEmail').value.trim();
+  if (!email || !email.includes('@')) {
+    document.getElementById('waitlistEmail').style.borderColor = '#ef5350';
+    return;
+  }
+  // Store locally (in a real setup this POSTs to a backend)
+  const list = JSON.parse(localStorage.getItem('waitlist') || '[]');
+  if (!list.includes(email)) list.push(email);
+  localStorage.setItem('waitlist', JSON.stringify(list));
+
+  document.getElementById('waitlistForm').style.display = 'none';
+  document.getElementById('waitlistSuccess').style.display = 'block';
+}
+</script>
 
 </body>
 </html>
