@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stake Multi Builder — Smart Betting Tools</title>
+  <meta name="description" content="Scan live sports odds, detect value bets, and build winning multis automatically. Free tier available.">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #080f1a;
+      --bg2: #0d1b2a;
+      --green: #00e676;
+      --gold: #ffd740;
+      --red: #ef5350;
+      --text: #e0e0e0;
+      --muted: #888;
+    }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; }
+
+    /* Nav */
+    nav { display: flex; justify-content: space-between; align-items: center; padding: 16px 32px; border-bottom: 1px solid #111; position: sticky; top: 0; background: rgba(8,15,26,0.95); backdrop-filter: blur(8px); z-index: 100; }
+    .logo { color: var(--green); font-weight: 800; font-size: 1.1rem; }
+    .nav-cta { background: var(--green); color: #000; border: none; padding: 8px 20px; border-radius: 6px; font-weight: 700; cursor: pointer; text-decoration: none; font-size: 0.9rem; }
+
+    /* Hero */
+    .hero { text-align: center; padding: 80px 24px 60px; max-width: 720px; margin: 0 auto; }
+    .hero-badge { display: inline-block; background: rgba(0,230,118,0.1); border: 1px solid rgba(0,230,118,0.3); color: var(--green); padding: 4px 14px; border-radius: 20px; font-size: 0.8rem; margin-bottom: 20px; }
+    .hero h1 { font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 800; line-height: 1.2; margin-bottom: 20px; }
+    .hero h1 span { color: var(--green); }
+    .hero p { color: var(--muted); font-size: 1.1rem; margin-bottom: 32px; }
+    .hero-btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .btn-primary { background: var(--green); color: #000; border: none; padding: 14px 32px; border-radius: 8px; font-size: 1rem; font-weight: 700; cursor: pointer; text-decoration: none; }
+    .btn-secondary { background: transparent; color: var(--text); border: 1px solid #333; padding: 14px 32px; border-radius: 8px; font-size: 1rem; cursor: pointer; text-decoration: none; }
+
+    /* Features */
+    .features { padding: 80px 24px; max-width: 1000px; margin: 0 auto; }
+    .features h2 { text-align: center; font-size: 2rem; margin-bottom: 48px; }
+    .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; }
+    .feature-card { background: var(--bg2); border: 1px solid #1a2a3a; border-radius: 12px; padding: 24px; }
+    .feature-icon { font-size: 2rem; margin-bottom: 12px; }
+    .feature-card h3 { color: var(--green); margin-bottom: 8px; font-size: 1rem; }
+    .feature-card p { color: var(--muted); font-size: 0.9rem; }
+
+    /* Pricing */
+    .pricing { padding: 80px 24px; max-width: 800px; margin: 0 auto; }
+    .pricing h2 { text-align: center; font-size: 2rem; margin-bottom: 12px; }
+    .pricing-sub { text-align: center; color: var(--muted); margin-bottom: 48px; }
+    .pricing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    @media (max-width: 600px) { .pricing-grid { grid-template-columns: 1fr; } nav { padding: 12px 16px; } .hero { padding: 48px 16px 40px; } }
+    .plan { background: var(--bg2); border: 1px solid #1a2a3a; border-radius: 16px; padding: 32px; position: relative; }
+    .plan.featured { border-color: var(--green); }
+    .plan-badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--green); color: #000; padding: 3px 16px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
+    .plan-name { font-size: 1.1rem; font-weight: 700; margin-bottom: 4px; }
+    .plan-price { font-size: 2.5rem; font-weight: 800; color: var(--green); margin: 12px 0 4px; }
+    .plan-price span { font-size: 1rem; color: var(--muted); font-weight: 400; }
+    .plan-desc { color: var(--muted); font-size: 0.85rem; margin-bottom: 24px; }
+    .plan-features { list-style: none; margin-bottom: 28px; }
+    .plan-features li { padding: 6px 0; font-size: 0.9rem; color: var(--muted); display: flex; align-items: flex-start; gap: 8px; }
+    .plan-features li::before { content: '✓'; color: var(--green); font-weight: 700; flex-shrink: 0; }
+    .plan-features li.no::before { content: '✗'; color: #444; }
+    .plan-features li.no { color: #444; }
+    .plan-btn { width: 100%; padding: 13px; border-radius: 8px; font-size: 0.95rem; font-weight: 700; cursor: pointer; border: none; }
+    .plan-btn.free { background: #1a2a3a; color: var(--text); border: 1px solid #333; }
+    .plan-btn.pro { background: var(--green); color: #000; }
+
+    /* Social proof */
+    .social { padding: 60px 24px; text-align: center; border-top: 1px solid #111; }
+    .social p { color: var(--muted); font-size: 0.9rem; }
+    .stats { display: flex; justify-content: center; gap: 48px; flex-wrap: wrap; margin-top: 32px; }
+    .stat-num { font-size: 2rem; font-weight: 800; color: var(--green); }
+    .stat-label { color: var(--muted); font-size: 0.8rem; }
+
+    /* Footer */
+    footer { text-align: center; padding: 32px; color: #444; font-size: 0.8rem; border-top: 1px solid #111; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">⚡ Stake Multi Builder</div>
+  <a href="../index.html" class="nav-cta">Open App →</a>
+</nav>
+
+<section class="hero">
+  <div class="hero-badge">🎯 Smart betting tools</div>
+  <h1>Build <span>winning multis</span> automatically</h1>
+  <p>Scan live sports odds across 15+ markets, detect value bets using vig removal, and get the optimal multi combination in seconds.</p>
+  <div class="hero-btns">
+    <a href="../index.html" class="btn-primary">Start for Free →</a>
+    <a href="#pricing" class="btn-secondary">See Pricing</a>
+  </div>
+</section>
+
+<section class="features">
+  <h2>Everything you need to build better multis</h2>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">⚡</div>
+      <h3>Instant Scan</h3>
+      <p>Scan 15+ sports in seconds. NBA, MLB, NFL, AFL, NRL, EPL, NHL and more — all markets covered.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">★</div>
+      <h3>Value Bet Detection</h3>
+      <p>Vig removal reveals the true fair odds. Value bets are flagged so you only bet when you have an edge.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🎯</div>
+      <h3>Smart Multi Builder</h3>
+      <p>Hill-climb algorithm finds the combination closest to your target odds with no correlated legs.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📐</div>
+      <h3>Kelly Criterion</h3>
+      <p>Optimal stake sizing using quarter-Kelly formula. Set your bankroll and get a recommended stake.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📊</div>
+      <h3>ROI Tracking</h3>
+      <p>Log every multi and track your profit curve over time. Export history as JSON anytime.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🎉</div>
+      <h3>Auto Result Checking</h3>
+      <p>Results are checked automatically every 5 minutes using live sports data. No manual updates needed.</p>
+    </div>
+  </div>
+</section>
+
+<section class="pricing" id="pricing">
+  <h2>Simple pricing</h2>
+  <p class="pricing-sub">Start free with your own API key. Go Pro for shared credits and priority support.</p>
+  <div class="pricing-grid">
+    <div class="plan">
+      <div class="plan-name">Free</div>
+      <div class="plan-price">$0 <span>/ month</span></div>
+      <div class="plan-desc">Your own Odds API key (500 free credits/month)</div>
+      <ul class="plan-features">
+        <li>All sports + all markets</li>
+        <li>Value bet detection</li>
+        <li>Kelly stake calculator</li>
+        <li>ROI history tracking</li>
+        <li>PWA — install on phone</li>
+        <li class="no">Shared credit pool</li>
+        <li class="no">Email alerts</li>
+        <li class="no">Telegram bot</li>
+      </ul>
+      <a href="../index.html" class="plan-btn free">Get Started Free</a>
+    </div>
+    <div class="plan featured">
+      <div class="plan-badge">Most Popular</div>
+      <div class="plan-name">Pro</div>
+      <div class="plan-price">$5 <span>/ month</span></div>
+      <div class="plan-desc">No API key needed — shared credit pool</div>
+      <ul class="plan-features">
+        <li>Everything in Free</li>
+        <li>Shared credit pool (unlimited scans)</li>
+        <li>Email alerts on results</li>
+        <li>Telegram bot access</li>
+        <li>Priority support</li>
+        <li>Early access to new features</li>
+      </ul>
+      <button class="plan-btn pro" onclick="alert('Stripe coming soon! Join the waitlist at the link below.')">Get Pro →</button>
+    </div>
+  </div>
+</section>
+
+<section class="social">
+  <p>Trusted by bettors across Australia, UK, and India</p>
+  <div class="stats">
+    <div><div class="stat-num">15+</div><div class="stat-label">Sports covered</div></div>
+    <div><div class="stat-num">3</div><div class="stat-label">Markets per sport</div></div>
+    <div><div class="stat-num">500</div><div class="stat-label">Free credits/month</div></div>
+    <div><div class="stat-num">5min</div><div class="stat-label">Auto result check</div></div>
+  </div>
+</section>
+
+<footer>
+  <p>⚡ Stake Multi Builder — Built for Stake.com users. Bet responsibly. 18+ only.</p>
+  <p style="margin-top:8px;"><a href="../index.html" style="color:#00e676;">Open App</a></p>
+</footer>
+
+</body>
+</html>

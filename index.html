@@ -642,6 +642,7 @@
       <button class="filter-btn" data-market="h2h" onclick="setMarketFilter(this)">Match Winner</button>
       <button class="filter-btn" data-market="totals" onclick="setMarketFilter(this)">Over/Under</button>
       <button class="filter-btn" data-market="spreads" onclick="setMarketFilter(this)">Spreads</button>
+      <button class="filter-btn move-filter-btn" onclick="setMoveFilter(this)">🔥 Moved</button>
       <select id="sportFilterTable" onchange="filterBets()" style="font-size:12px;padding:5px 8px">
         <option value="all">All Sports</option>
       </select>
@@ -761,7 +762,26 @@ let currentMultiLegs = []; // full structured data for the current best multi
 let currentSortCol = 'prob';
 let currentSortDir = 'desc';
 let marketFilter = 'all';
+let moveFilter = false;
 let apiKey = localStorage.getItem('oddsApiKey') || '';
+
+// ─── Odds snapshot helpers ─────────────────────────────────────────────────────
+function saveOddsSnapshot() {
+  const snapshot = {};
+  for (const bet of allBets) {
+    const key = `${bet.match}|${bet.selection}|${bet.market}`;
+    snapshot[key] = bet.odds;
+  }
+  sessionStorage.setItem('oddsSnapshot', JSON.stringify(snapshot));
+}
+
+function getPrevOdds(bet) {
+  try {
+    const snap = JSON.parse(sessionStorage.getItem('oddsSnapshot') || '{}');
+    const key = `${bet.match}|${bet.selection}|${bet.market}`;
+    return snap[key] || null;
+  } catch { return null; }
+}
 let scanning = false;
 
 // ─── Sport helpers ─────────────────────────────────────────────────────────────
@@ -1083,6 +1103,12 @@ async function startScan() {
   const estimatedCredits = scanMode === 'smart' ? '~8 credits' : '~86 credits';
   setStatus(`Starting scan (${estimatedCredits})...`, true);
 
+  // Capture previous odds snapshot before overwriting allBets
+  const oldSnapshot = {};
+  try {
+    Object.assign(oldSnapshot, JSON.parse(sessionStorage.getItem('oddsSnapshot') || '{}'));
+  } catch {}
+
   lastScanTime = Date.now();
   scanning = true;
   allBets = []; filteredBets = []; customLegs = [];
@@ -1162,6 +1188,18 @@ async function startScan() {
       document.getElementById('bestMultiCard')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
+    // Annotate bets with odds movement vs previous snapshot
+    for (const bet of allBets) {
+      const key = `${bet.match}|${bet.selection}|${bet.market}`;
+      const prev = oldSnapshot[key];
+      if (prev && prev !== bet.odds) {
+        bet.oddsMove = bet.odds > prev ? 'up' : 'down';
+        bet.oddsPrev = prev;
+      }
+    }
+    // Save new snapshot for next scan
+    saveOddsSnapshot();
+
     populateSportFilter();
     filteredBets = [...allBets].sort((a, b) => a.odds - b.odds);
     renderTable();
@@ -1171,6 +1209,13 @@ async function startScan() {
     if (fresh.length > 0) logCreditUsage(fresh.length);
     const ttlNote = fresh.length > 0 ? `Cache valid up to 6h for far-future games.` : `All from cache — 0 credits used.`;
     showAlert(`✅ Found ${allBets.length} bets. Used ${fresh.length} credit(s) — ${cached.length} from cache 🆓. ${ttlNote}`, 'success');
+    // Show odds movement summary if any odds moved
+    const moved = allBets.filter(b => b.oddsMove);
+    const up = moved.filter(b => b.oddsMove === 'up').length;
+    const dn = moved.filter(b => b.oddsMove === 'down').length;
+    if (moved.length) {
+      showStatus(`📊 Odds movement: ${up} ▲ shortened, ${dn} ▼ drifted`, 'info');
+    }
     // Auto-check any pending logged bets after each scan
     autoCheckPendingBets();
 
@@ -1533,7 +1578,10 @@ function renderTable() {
   // 'match' = leave in current sortFilteredBets order
   const cd = document.getElementById('betCountDisplay');
   if (cd) cd.textContent = `Showing ${Math.min(displayBets.length, 500)} of ${allBets.length} bets`;
-  body.innerHTML = displayBets.slice(0, 500).map(bet => {
+  body.innerHTML = displayBets.filter(bet => {
+    if (moveFilter && !bet.oddsMove) return false;
+    return true;
+  }).slice(0, 500).map(bet => {
     const prob = bet.impliedProb * 100;
     const oddsClass = bet.odds < 1.4 ? 'odds-hot' : bet.odds < 1.7 ? 'odds-warm' : 'odds-cool';
     const mktClass = marketClass(bet.market);
@@ -1547,7 +1595,7 @@ function renderTable() {
       <td>${bet.match}</td>
       <td><span class="market-pill ${mktClass}">${getMarketLabel(bet.market)}</span></td>
       <td><strong>${bet.selection}</strong><br><span style="font-size:11px;color:var(--text3)">${bet.betDescription}</span></td>
-      <td class="odds-cell ${oddsClass}">${bet.odds.toFixed(2)}${bet.isValue ? `<span class="value-badge" title="Fair odds: ${bet.fairOdds} | Vig: ${bet.vigPct}%">★</span>` : ''}</td>
+      <td class="odds-cell ${oddsClass}">${bet.odds.toFixed(2)}${bet.isValue ? `<span class="value-badge" title="Fair odds: ${bet.fairOdds} | Vig: ${bet.vigPct}%">★</span>` : ''}${bet.oddsMove === 'up' ? `<span title="Was ${bet.oddsPrev}" style="color:#00e676;font-size:10px;margin-left:3px;">▲</span>` : bet.oddsMove === 'down' ? `<span title="Was ${bet.oddsPrev}" style="color:#ef5350;font-size:10px;margin-left:3px;">▼</span>` : ''}</td>
       <td class="prob-cell"><span>${prob.toFixed(1)}%</span><div class="prob-bar"><div class="prob-fill" style="width:${Math.min(prob,100)}%"></div></div></td>
       <td>${timeStr}</td>
       <td class="td-actions">
@@ -1587,9 +1635,15 @@ function filterBets() {
 
 function setMarketFilter(btn) {
   marketFilter = btn.dataset.market;
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.filter-btn:not(.move-filter-btn)').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   filterBets();
+}
+
+function setMoveFilter(btn) {
+  moveFilter = !moveFilter;
+  btn.classList.toggle('active', moveFilter);
+  renderTable();
 }
 
 function sortBy(col) {
