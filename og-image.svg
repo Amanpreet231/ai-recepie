@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#080f1a"/>
+      <stop offset="100%" style="stop-color:#0d1b2a"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#00e676;stop-opacity:0.2"/>
+      <stop offset="100%" style="stop-color:#00e676;stop-opacity:0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Green glow accent top-left -->
+  <ellipse cx="0" cy="0" rx="400" ry="300" fill="#00e676" fill-opacity="0.06"/>
+
+  <!-- Border -->
+  <rect x="1" y="1" width="1198" height="628" fill="none" stroke="#00e676" stroke-width="2" stroke-opacity="0.3" rx="8"/>
+
+  <!-- Lightning bolt icon -->
+  <text x="80" y="200" font-family="Arial, sans-serif" font-size="120" fill="#00e676">⚡</text>
+
+  <!-- Main headline -->
+  <text x="80" y="290" font-family="Arial Black, Arial, sans-serif" font-size="64" font-weight="900" fill="#ffffff">Stake Multi Builder</text>
+
+  <!-- Subheadline -->
+  <text x="80" y="355" font-family="Arial, sans-serif" font-size="32" fill="#888888">Scan live sports · Detect value bets · Build winning multis</text>
+
+  <!-- Divider line -->
+  <line x1="80" y1="390" x2="600" y2="390" stroke="#1a2a3a" stroke-width="1"/>
+
+  <!-- Feature pills -->
+  <!-- Pill 1 -->
+  <rect x="80" y="415" width="180" height="40" rx="20" fill="#0d1b2a" stroke="#00e676" stroke-opacity="0.4" stroke-width="1"/>
+  <text x="170" y="441" font-family="Arial, sans-serif" font-size="18" fill="#00e676" text-anchor="middle">★ Value Bets</text>
+
+  <!-- Pill 2 -->
+  <rect x="275" y="415" width="160" height="40" rx="20" fill="#0d1b2a" stroke="#333" stroke-width="1"/>
+  <text x="355" y="441" font-family="Arial, sans-serif" font-size="18" fill="#888" text-anchor="middle">15+ Sports</text>
+
+  <!-- Pill 3 -->
+  <rect x="450" y="415" width="160" height="40" rx="20" fill="#0d1b2a" stroke="#333" stroke-width="1"/>
+  <text x="530" y="441" font-family="Arial, sans-serif" font-size="18" fill="#888" text-anchor="middle">Free Tier</text>
+
+  <!-- Pill 4 -->
+  <rect x="625" y="415" width="200" height="40" rx="20" fill="#0d1b2a" stroke="#333" stroke-width="1"/>
+  <text x="725" y="441" font-family="Arial, sans-serif" font-size="18" fill="#888" text-anchor="middle">Auto Results</text>
+
+  <!-- URL -->
+  <text x="80" y="560" font-family="Arial, sans-serif" font-size="24" fill="#555">stake-multi-builder.pages.dev</text>
+
+  <!-- Mock multi card on right side -->
+  <rect x="820" y="100" width="320" height="420" rx="12" fill="#0d1b2a" stroke="#1a2a3a" stroke-width="1"/>
+  <rect x="820" y="100" width="320" height="420" rx="12" fill="none" stroke="#00e676" stroke-width="1" stroke-opacity="0.3"/>
+
+  <!-- Card header -->
+  <text x="840" y="140" font-family="Arial, sans-serif" font-size="14" fill="#00e676">⚡ BEST MULTI FOUND</text>
+  <rect x="840" y="155" width="280" height="1" fill="#1a2a3a"/>
+
+  <!-- Odds badge -->
+  <rect x="840" y="168" width="120" height="36" rx="18" fill="#00e676"/>
+  <text x="900" y="192" font-family="Arial Black, sans-serif" font-size="18" font-weight="900" fill="#000" text-anchor="middle">2.14x</text>
+
+  <!-- Legs -->
+  <text x="840" y="235" font-family="Arial, sans-serif" font-size="13" fill="#888">🏀 NBA · Over/Under</text>
+  <text x="840" y="255" font-family="Arial, sans-serif" font-size="14" fill="#fff">Lakers Over 215.5</text>
+  <text x="1100" y="255" font-family="Arial, sans-serif" font-size="14" fill="#00e676" text-anchor="end">1.38 ★</text>
+
+  <line x1="840" y1="268" x2="1120" y2="268" stroke="#1a2a3a" stroke-width="1"/>
+
+  <text x="840" y="288" font-family="Arial, sans-serif" font-size="13" fill="#888">⚾ MLB · Handicap</text>
+  <text x="840" y="308" font-family="Arial, sans-serif" font-size="14" fill="#fff">Yankees -1.5</text>
+  <text x="1100" y="308" font-family="Arial, sans-serif" font-size="14" fill="#00e676" text-anchor="end">1.55 ★</text>
+
+  <line x1="840" y1="320" x2="1120" y2="320" stroke="#1a2a3a" stroke-width="1"/>
+
+  <text x="840" y="340" font-family="Arial, sans-serif" font-size="13" fill="#888">⚽ EPL · Match Winner</text>
+  <text x="840" y="360" font-family="Arial, sans-serif" font-size="14" fill="#fff">Arsenal Win</text>
+  <text x="1100" y="360" font-family="Arial, sans-serif" font-size="14" fill="#ffd740" text-anchor="end">1.45</text>
+
+  <!-- Return calc -->
+  <rect x="840" y="385" width="280" height="50" rx="6" fill="#080f1a"/>
+  <text x="850" y="408" font-family="Arial, sans-serif" font-size="12" fill="#888">$10 stake →</text>
+  <text x="850" y="426" font-family="Arial Black, sans-serif" font-size="16" font-weight="900" fill="#00e676">Return: $21.40</text>
+  <text x="1100" y="426" font-family="Arial, sans-serif" font-size="13" fill="#00e676" text-anchor="end">+$11.40</text>
+
+  <!-- VALUE MULTI badge -->
+  <text x="840" y="475" font-family="Arial, sans-serif" font-size="13" fill="#ffd740">★ VALUE MULTI — all legs beat the vig</text>
+
+  <!-- Bottom right dot pattern decoration -->
+  <circle cx="1150" cy="580" r="3" fill="#1a2a3a"/>
+  <circle cx="1165" cy="580" r="3" fill="#1a2a3a"/>
+  <circle cx="1180" cy="580" r="3" fill="#1a2a3a"/>
+  <circle cx="1150" cy="595" r="3" fill="#1a2a3a"/>
+  <circle cx="1165" cy="595" r="3" fill="#1a2a3a"/>
+  <circle cx="1180" cy="595" r="3" fill="#1a2a3a"/>
+</svg>
