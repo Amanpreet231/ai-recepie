@@ -413,6 +413,8 @@
   document.getElementById('manifestLink').href = URL.createObjectURL(blob);
 })();
 </script>
+<!-- Supabase client -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
 
@@ -427,6 +429,16 @@
     <button id="installBtn" onclick="installApp()" style="display:none;background:#00e676;color:#000;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:0.8rem;font-weight:700;align-items:center;gap:6px;">
       📲 Install App
     </button>
+    <div id="authArea" style="display:flex;align-items:center;gap:8px;">
+      <button id="loginBtn" onclick="showAuthModal()" style="background:transparent;color:#00e676;border:1px solid #00e676;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:0.8rem;font-weight:700;">
+        🔐 Sign In
+      </button>
+      <div id="userInfo" style="display:none;align-items:center;gap:8px;">
+        <span id="userEmail" style="color:#888;font-size:0.75rem;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+        <button onclick="syncToCloud()" title="Sync to cloud" style="background:transparent;border:1px solid #1a2a3a;color:#00e676;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:0.75rem;">☁ Sync</button>
+        <button onclick="signOut()" style="background:transparent;border:1px solid #1a2a3a;color:#888;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:0.75rem;">Sign out</button>
+      </div>
+    </div>
     <div id="creditBar" style="margin-top:6px;min-width:120px;">
       <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
         <span style="color:#888;font-size:0.75rem;">API Credits</span>
@@ -438,6 +450,31 @@
     </div>
   </div>
 </header>
+
+<!-- Auth Modal -->
+<div id="authModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:10001;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:#0d1b2a;border:1px solid #00e676;border-radius:16px;padding:32px;max-width:400px;width:100%;position:relative;">
+    <button onclick="closeAuthModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:#888;font-size:1.2rem;cursor:pointer;">✕</button>
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="font-size:2rem;margin-bottom:8px;">⚡</div>
+      <h2 style="color:#fff;margin:0 0 6px;font-size:1.3rem;">Sign in to Stake Multi Builder</h2>
+      <p style="color:#888;font-size:0.85rem;margin:0;">Sync your bet history across all devices</p>
+    </div>
+    <div id="authMagicLink" style="display:block;">
+      <label style="color:#888;font-size:0.8rem;display:block;margin-bottom:6px;">Email address</label>
+      <input id="authEmailInput" type="email" placeholder="you@email.com"
+        style="width:100%;box-sizing:border-box;background:#0a1628;border:1px solid #1a3a5c;border-radius:8px;padding:12px;color:#fff;font-size:0.95rem;margin-bottom:12px;"
+        onkeydown="if(event.key==='Enter')sendMagicLink()">
+      <button onclick="sendMagicLink()" style="width:100%;background:#00e676;color:#000;border:none;padding:12px;border-radius:8px;font-weight:700;font-size:0.95rem;cursor:pointer;">
+        Send Magic Link ✉
+      </button>
+      <div id="magicLinkSent" style="display:none;margin-top:12px;padding:12px;background:#0a2a1a;border:1px solid #00e676;border-radius:8px;color:#00e676;font-size:0.85rem;text-align:center;">
+        ✅ Check your email — click the link to sign in!
+      </div>
+    </div>
+    <p style="color:#555;font-size:0.75rem;text-align:center;margin:16px 0 0;">No password needed · Free forever · Your data stays yours</p>
+  </div>
+</div>
 
 <!-- Onboarding Modal -->
 <div id="onboardingModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:10000;align-items:center;justify-content:center;padding:16px;">
@@ -940,16 +977,16 @@ function saveApiKey() {
 function saveAlertEmail() {
   const email = document.getElementById('alertEmail').value.trim();
   if (!email || !email.includes('@')) {
-    showStatus('Enter a valid email address', 'warn');
+    showAlert('Enter a valid email address', 'warn');
     return;
   }
   localStorage.setItem('alertEmail', email);
-  showStatus('Email saved — you\'ll be notified when bets settle', 'success');
+  showAlert('Email saved — you\'ll be notified when bets settle', 'success');
 }
 
 async function sendResultAlert(entry) {
   const email = localStorage.getItem('alertEmail');
-  const EMAIL_ALERTS_URL = localStorage.getItem('emailAlertsUrl') || '';
+  const EMAIL_ALERTS_URL = 'https://smb-email-alerts.amanpreet6.workers.dev';
   if (!email || !EMAIL_ALERTS_URL) return;
   try {
     await fetch(EMAIL_ALERTS_URL, {
@@ -1097,10 +1134,107 @@ const TOP_SPORT_KEYS = [
 // Smart scan fallback: if exact keys fail, pick by category (max per category)
 const SMART_MAX_PER_CAT = { soccer: 3, basketball: 2, cricket: 2, aussierules: 1, rugby: 1, mma: 1, baseball: 1, icehockey: 1, tennis: 1, americanfootball: 1 };
 
+// ─── SUPABASE ─────────────────────────────────────────────────────────────────
+const SUPABASE_URL      = 'https://ccbifkdpltztczdrpegf.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNjYmlma2RwbHR6dGN6ZHJwZWdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwMjEwMjksImV4cCI6MjA5MDU5NzAyOX0.rXNP_Pb7NzaYZW7ebK42t_EVoDY-gnrHc3A5J4tzntk';
+
+const _sb = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Auth UI helpers
+function showAuthModal() {
+  const m = document.getElementById('authModal');
+  m.style.display = 'flex';
+  document.getElementById('authEmailInput')?.focus();
+}
+function closeAuthModal() {
+  document.getElementById('authModal').style.display = 'none';
+  document.getElementById('magicLinkSent').style.display = 'none';
+}
+async function sendMagicLink() {
+  const email = document.getElementById('authEmailInput').value.trim();
+  if (!email) return;
+  const btn = document.querySelector('#authMagicLink button');
+  btn.textContent = 'Sending…';
+  btn.disabled = true;
+  const { error } = await _sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.href } });
+  btn.textContent = 'Send Magic Link ✉';
+  btn.disabled = false;
+  if (error) { showAlert('Login error: ' + error.message, 'error'); return; }
+  document.getElementById('magicLinkSent').style.display = 'block';
+}
+async function signOut() {
+  await _sb?.auth.signOut();
+  document.getElementById('userInfo').style.display = 'none';
+  document.getElementById('loginBtn').style.display = '';
+  showAlert('Signed out', 'info');
+}
+function updateAuthUI(user) {
+  if (user) {
+    document.getElementById('loginBtn').style.display = 'none';
+    const ui = document.getElementById('userInfo');
+    ui.style.display = 'flex';
+    document.getElementById('userEmail').textContent = user.email;
+  } else {
+    document.getElementById('loginBtn').style.display = '';
+    document.getElementById('userInfo').style.display = 'none';
+  }
+}
+
+// Cloud sync
+async function syncToCloud() {
+  if (!_sb) return;
+  const { data: { user } } = await _sb.auth.getUser();
+  if (!user) { showAuthModal(); return; }
+  let synced = 0;
+  for (const entry of betHistory) {
+    if (entry.synced) continue;
+    const { error } = await _sb.from('bet_history').upsert({
+      user_id: user.id,
+      date: entry.date,
+      legs: entry.legs,
+      combined_odds: entry.combinedOdds,
+      result: entry.result || 'pending',
+      stake: entry.stake || 10,
+      auto_checked: entry.autoChecked || false,
+    }, { onConflict: 'user_id,date' });
+    if (!error) { entry.synced = true; synced++; }
+  }
+  saveHistory();
+  showAlert(synced > 0 ? `☁ Synced ${synced} bet${synced>1?'s':''} to cloud` : '☁ Already up to date', 'success');
+}
+async function syncFromCloud() {
+  if (!_sb) return;
+  const { data: { user } } = await _sb.auth.getUser();
+  if (!user) return;
+  const { data, error } = await _sb.from('bet_history').select('*').order('date', { ascending: false });
+  if (error || !data) return;
+  const cloudDates = new Set(data.map(d => d.date));
+  const localOnly = betHistory.filter(b => !cloudDates.has(b.date));
+  betHistory = [
+    ...data.map(d => ({ date: d.date, legs: d.legs, combinedOdds: d.combined_odds, result: d.result, stake: d.stake, autoChecked: d.auto_checked, synced: true })),
+    ...localOnly,
+  ].sort((a, b) => new Date(b.date) - new Date(a.date));
+  saveHistory();
+  renderHistory();
+  showAlert(`☁ Loaded ${data.length} bet${data.length!==1?'s':''} from cloud`, 'success');
+}
+
+// Boot: check session on load
+(async () => {
+  if (!_sb) return;
+  const { data: { session } } = await _sb.auth.getSession();
+  if (session?.user) { updateAuthUI(session.user); syncFromCloud(); }
+  _sb.auth.onAuthStateChange((event, session) => {
+    updateAuthUI(session?.user || null);
+    if (event === 'SIGNED_IN') { closeAuthModal(); syncFromCloud(); showAlert('✅ Signed in — syncing history…', 'success'); }
+    if (event === 'SIGNED_OUT') updateAuthUI(null);
+  });
+})();
+
 // ─── API ──────────────────────────────────────────────────────────────────────
 // Phase B: set USE_PROXY = true and fill PROXY_URL once Cloudflare Worker is deployed
 // That makes ALL users share one cache — free tier serves thousands of users
-const USE_PROXY  = true;
+const USE_PROXY  = false; // proxy API key exhausted — users use personal key directly
 const PROXY_URL  = 'https://stake-multi-proxy.amanpreet6.workers.dev';
 const API = USE_PROXY ? PROXY_URL : 'https://api.the-odds-api.com/v4';
 
@@ -1284,7 +1418,7 @@ async function startScan() {
     const up = moved.filter(b => b.oddsMove === 'up').length;
     const dn = moved.filter(b => b.oddsMove === 'down').length;
     if (moved.length) {
-      showStatus(`📊 Odds movement: ${up} ▲ shortened, ${dn} ▼ drifted`, 'info');
+      showAlert(`📊 Odds movement: ${up} ▲ shortened, ${dn} ▼ drifted`, 'info');
     }
     // Auto-check any pending logged bets after each scan
     autoCheckPendingBets();
@@ -1384,7 +1518,7 @@ function processEvent(event, sport) {
 // ─── Multi Algorithm ──────────────────────────────────────────────────────────
 function buildBestMulti(bets, targetOdds, maxLegs, timeWindowH) {
   if (!bets || bets.length < 2) {
-    showStatus('Not enough bets to build a multi. Try scanning more sports.', 'warn');
+    showAlert('Not enough bets to build a multi. Try scanning more sports.', 'warn');
     return null;
   }
 
@@ -1898,7 +2032,7 @@ function clearHistory() {
 
 function exportHistory() {
   if (!betHistory.length) {
-    showStatus('No history to export.', 'warn');
+    showAlert('No history to export.', 'warn');
     return;
   }
   const data = JSON.stringify(betHistory, null, 2);
@@ -1909,7 +2043,7 @@ function exportHistory() {
   a.download = `stake-multis-${new Date().toISOString().slice(0,10)}.json`;
   a.click();
   URL.revokeObjectURL(url);
-  showStatus(`Exported ${betHistory.length} bets.`, 'success');
+  showAlert(`Exported ${betHistory.length} bets.`, 'success');
 }
 
 function importHistory(event) {
@@ -1932,9 +2066,9 @@ function importHistory(event) {
       betHistory.sort((a,b) => new Date(b.date) - new Date(a.date));
       saveHistory();
       renderHistory();
-      showStatus(`Imported ${added} new entries (${imported.length - added} duplicates skipped).`, 'success');
+      showAlert(`Imported ${added} new entries (${imported.length - added} duplicates skipped).`, 'success');
     } catch(err) {
-      showStatus('Import failed: invalid JSON file.', 'error');
+      showAlert('Import failed: invalid JSON file.', 'error');
     }
     event.target.value = ''; // reset so same file can be re-imported
   };
